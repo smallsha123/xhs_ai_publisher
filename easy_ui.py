@@ -7,6 +7,8 @@ import requests
 from PIL import Image, ImageTk
 import io
 
+
+# 小红书发布助手ui
 class XiaohongshuUI:
     def __init__(self):
         self.window = tk.Tk()
