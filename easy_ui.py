@@ -10,19 +10,29 @@ import io
 class XiaohongshuUI:
     def __init__(self):
         self.window = tk.Tk()
-        self.window.title("小红书发文助手")
-        self.window.geometry("1000x1200") # 增加窗口高度
+        self.window.title("✨ 小红书发文助手") 
+        self.window.geometry("1200x650") # 缩小窗口尺寸
+        self.window.configure(bg='#f8f9fa')
         
         # 设置主题样式
         style = ttk.Style()
         style.theme_use('clam')
         
         # 自定义样式
-        style.configure('TLabelframe', background='#f0f0f0', borderwidth=2)
-        style.configure('TLabelframe.Label', font=('微软雅黑', 10, 'bold'), foreground='#333333')
-        style.configure('TButton', font=('微软雅黑', 9), padding=5)
-        style.configure('TLabel', font=('微软雅黑', 9))
-        style.configure('TEntry', padding=5)
+        style.configure('TLabelframe', background='#ffffff', borderwidth=1)
+        style.configure('TLabelframe.Label', font=('微软雅黑', 10, 'bold'), foreground='#2c3e50')
+        style.configure('TButton', 
+                       font=('微软雅黑', 9, 'bold'),
+                       padding=5,
+                       background='#4a90e2',
+                       foreground='white',
+                       borderwidth=0)
+        style.configure('TLabel', font=('微软雅黑', 9), foreground='#34495e')
+        style.configure('TEntry', 
+                       padding=5,
+                       font=('微软雅黑', 9),
+                       fieldbackground='#ffffff',
+                       borderwidth=1)
         
         # 初始化变量
         self.phone_var = tk.StringVar()
@@ -32,33 +42,58 @@ class XiaohongshuUI:
         self.header_var = tk.StringVar(value="大模型技术分享")
         self.author_var = tk.StringVar(value="贝塔街的万事屋")
         
-        # 创建主容器
-        self.main_container = ttk.Frame(self.window, padding="20 10 20 10")
+        # 创建主滚动容器
+        self.canvas = tk.Canvas(self.window, bg='#f8f9fa')
+        self.scrollbar = ttk.Scrollbar(self.window, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        # 设置主容器
+        self.main_container = ttk.Frame(self.scrollable_frame, padding="25 15 25 15")
         self.main_container.pack(fill=tk.BOTH, expand=True)
+        
+        # 布局滚动组件
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+
+        # 绑定鼠标滚轮事件
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
         
         self.create_widgets()
         
         self.images = []
         
+    def _on_mousewheel(self, event):
+        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
     def create_widgets(self):
         # 手机号输入
-        phone_frame = ttk.LabelFrame(self.main_container, text="登录信息", padding=15)
+        phone_frame = ttk.LabelFrame(self.main_container, text="🔐 登录信息", padding=15)
         phone_frame.pack(fill="x", pady=(0,15))
         
-        ttk.Label(phone_frame, text="手机号:").pack(side="left")
-        phone_entry = ttk.Entry(phone_frame, textvariable=self.phone_var)
-        phone_entry.pack(side="left", padx=10)
-        login_btn = ttk.Button(phone_frame, text="登录", command=self.login, style='TButton')
+        ttk.Label(phone_frame, text="📱 手机号:").pack(side="left")
+        phone_entry = ttk.Entry(phone_frame, textvariable=self.phone_var, width=30)
+        phone_entry.pack(side="left", padx=15)
+        login_btn = ttk.Button(phone_frame, text="🚀 登录", command=self.login, style='TButton')
         login_btn.pack(side="left")
         
         # 操作按钮区域
         button_frame = ttk.Frame(self.main_container)
         button_frame.pack(fill="x", pady=(0,15))
         
-        generate_btn = ttk.Button(button_frame, text="生成内容", command=self.generate_content, style='TButton')
-        generate_btn.pack(side="left", padx=(0,10))
+        generate_btn = ttk.Button(button_frame, text="✨ 生成内容", command=self.generate_content, style='TButton')
+        generate_btn.pack(side="left", padx=(0,15))
         
-        preview_btn = ttk.Button(button_frame, text="预览发布", command=self.preview_post, style='TButton')
+        preview_btn = ttk.Button(button_frame, text="🎯 预览发布", command=self.preview_post, style='TButton')
         preview_btn.pack(side="left")
 
         # 左右布局容器
@@ -67,57 +102,84 @@ class XiaohongshuUI:
         
         # 左侧内容区域
         left_frame = ttk.Frame(content_container)
-        left_frame.pack(side="left", fill=tk.BOTH, expand=True, padx=(0,10))
+        left_frame.pack(side="left", fill=tk.BOTH, expand=True, padx=(0,15))
          
         # 输入区域
-        input_frame = ttk.LabelFrame(left_frame, text="内容输入", padding=15)
+        input_frame = ttk.LabelFrame(left_frame, text="✏️ 内容输入", padding=15)
         input_frame.pack(fill="both", expand=True, pady=(0,15))
         
-        self.input_text_widget = scrolledtext.ScrolledText(input_frame, height=12, font=('微软雅黑', 10))
+        self.input_text_widget = scrolledtext.ScrolledText(
+            input_frame, 
+            height=8,
+            font=('微软雅黑', 10),
+            wrap=tk.WORD,
+            bg='#ffffff',
+            fg='#2c3e50',
+            padx=10,
+            pady=10
+        )
         self.input_text_widget.pack(fill="both", expand=True)
         
         # 标题编辑区
-        title_frame = ttk.LabelFrame(left_frame, text="标题编辑", padding=15)
+        title_frame = ttk.LabelFrame(left_frame, text="📝 标题编辑", padding=15)
         title_frame.pack(fill="x")
         
         # 使用Grid布局管理标题区域
         for i, (label_text, var) in enumerate([
-            ("标题:", self.title_var),
-            ("内容:", self.subtitle_var),
-            ("眉头标题:", self.header_var),
-            ("作者:", self.author_var)
+            ("📌 标题:", self.title_var),
+            ("📄 内容:", self.subtitle_var),
+            ("🏷️ 眉头标题:", self.header_var),
+            ("👤 作者:", self.author_var)
         ]):
-            ttk.Label(title_frame, text=label_text).grid(row=i, column=0, sticky="w", pady=5)
-            if label_text == "内容:":
-                entry = ttk.Entry(title_frame, textvariable=var, width=50)  # 增加内容输入框的宽度
+            ttk.Label(title_frame, text=label_text).grid(row=i, column=0, sticky="w", pady=8)
+            if label_text == "📄 内容:":
+                entry = ttk.Entry(title_frame, textvariable=var, width=45)
             else:
-                entry = ttk.Entry(title_frame, textvariable=var)
-            entry.grid(row=i, column=1, padx=10, pady=5, sticky="ew")
+                entry = ttk.Entry(title_frame, textvariable=var, width=35)
+            entry.grid(row=i, column=1, padx=15, pady=8, sticky="ew")
         
         title_frame.grid_columnconfigure(1, weight=1)
         
         # 右侧图片预览区
-        self.preview_frame = ttk.LabelFrame(content_container, text="图片预览", padding=15)
+        self.preview_frame = ttk.LabelFrame(content_container, text="🖼️ 图片预览", padding=15)
         self.preview_frame.pack(side="right", fill="both", expand=True)
+        
+        # 创建图片预览的画布和滚动条
+        self.preview_canvas = tk.Canvas(self.preview_frame, bg='#ffffff')
+        self.preview_scrollbar = ttk.Scrollbar(self.preview_frame, orient="vertical", command=self.preview_canvas.yview)
+        self.preview_container = ttk.Frame(self.preview_canvas)
+        
+        self.preview_container.bind(
+            "<Configure>",
+            lambda e: self.preview_canvas.configure(
+                scrollregion=self.preview_canvas.bbox("all")
+            )
+        )
+        
+        self.preview_canvas.create_window((0, 0), window=self.preview_container, anchor="nw")
+        self.preview_canvas.configure(yscrollcommand=self.preview_scrollbar.set)
+        
+        self.preview_canvas.pack(side="left", fill="both", expand=True)
+        self.preview_scrollbar.pack(side="right", fill="y")
 
     def login(self):
         try:
             phone = self.phone_var.get()
             if not phone:
-                messagebox.showerror("错误", "请输入手机号")
+                messagebox.showerror("❌ 错误", "请输入手机号")
                 return
                 
             self.poster = XiaohongshuPoster()
             self.poster.login(phone)
-            messagebox.showinfo("成功", "登录成功")
+            messagebox.showinfo("✅ 成功", "登录成功")
         except Exception as e:
-            messagebox.showerror("错误", f"登录失败: {str(e)}")
+            messagebox.showerror("❌ 错误", f"登录失败: {str(e)}")
 
     def generate_content(self):
         try:
             input_text = self.input_text_widget.get("1.0", tk.END).strip()
             if not input_text:
-                messagebox.showerror("错误", "请输入内容")
+                messagebox.showerror("❌ 错误", "请输入内容")
                 return
                 
             workflow_id = "7431484143153070132"
@@ -149,16 +211,15 @@ class XiaohongshuUI:
             self.title_var.set(title)
             
             # 获取生成的内容作为副标题
-            content =output_data['content']
-            # if content_list:
-            self.subtitle_var.set(content)  # 使用第一段内容作为副标题
+            content = output_data['content']
+            self.subtitle_var.set(content)
             
             # 获取图片
             cover_image_url = json.loads(res['data'])['image']
             content_image_urls = json.loads(res['data'])['image_content']
             
             # 清空之前的图片
-            for widget in self.preview_frame.winfo_children():
+            for widget in self.preview_container.winfo_children():
                 widget.destroy()
             
             # 下载并显示图片
@@ -171,13 +232,12 @@ class XiaohongshuUI:
             self.input_text_widget.delete("1.0", tk.END)
             self.input_text_widget.insert("1.0", input_text)
             
-            messagebox.showinfo("成功", "内容生成完成")
+            messagebox.showinfo("✅ 成功", "✨ 内容生成完成")
             
-            # Start of Selection
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
-            messagebox.showerror("错误", f"生成内容失败: {str(e)}\n{error_details}")
+            messagebox.showerror("❌ 错误", f"生成内容失败: {str(e)}\n{error_details}")
 
     def download_and_show_image(self, url, title):
         try:
@@ -191,16 +251,16 @@ class XiaohongshuUI:
                 
                 # 显示图片预览
                 image = Image.open(io.BytesIO(response.content))
-                image = image.resize((120, 120), Image.LANCZOS)
+                image = image.resize((125, 125), Image.LANCZOS)  # 缩小预览图尺寸
                 photo = ImageTk.PhotoImage(image)
                 
-                frame = ttk.Frame(self.preview_frame)
-                frame.pack(side="top", pady=5)
+                frame = ttk.Frame(self.preview_container)
+                frame.pack(side="top", pady=10)
                 
                 label = ttk.Label(frame, image=photo)
                 label.image = photo
                 label.pack()
-                ttk.Label(frame, text=title, font=('微软雅黑', 9)).pack(pady=(5,0))
+                ttk.Label(frame, text=title, font=('微软雅黑', 9, 'bold')).pack(pady=(8,0))
                 
         except Exception as e:
             print(f"下载图片失败: {str(e)}")
@@ -208,25 +268,17 @@ class XiaohongshuUI:
     def preview_post(self):
         try:
             if not hasattr(self, 'poster'):
-                messagebox.showerror("错误", "请先登录")
+                messagebox.showerror("❌ 错误", "请先登录")
                 return
                 
             title = self.title_var.get()
             content = self.subtitle_var.get()
-            # content = self.input_text_widget.get("1.0", tk.END).strip()
-            
-            # if not title or not content or not self.images:
-            #     messagebox.showerror("错误", "标题、内容和图片不能为空")
-            #     return
-            
-            # 构建完整的内容
-            # full_content = f"{self.header_var.get()}\n\n{content}\n\n{self.author_var.get()}"
                 
             self.poster.post_article(title, content, self.images)
-            messagebox.showinfo("成功", "文章已准备好,请在浏览器中检查并发布")
+            messagebox.showinfo("✅ 成功", "🎉 文章已准备好,请在浏览器中检查并发布")
             
         except Exception as e:
-            messagebox.showerror("错误", f"预览发布失败: {str(e)}")
+            messagebox.showerror("❌ 错误", f"预览发布失败: {str(e)}")
 
     def run(self):
         self.window.mainloop()
