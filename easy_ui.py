@@ -38,11 +38,46 @@ class XiaohongshuUI:
         
         # 初始化变量
         self.phone_var = tk.StringVar()
+        self.country_code_var = tk.StringVar(value="+86") # 新增国家区号变量
         self.input_text = tk.StringVar()
         self.title_var = tk.StringVar() 
         self.subtitle_var = tk.StringVar()
         self.header_var = tk.StringVar(value="大模型技术分享")
         self.author_var = tk.StringVar(value="贝塔街的万事屋")
+        
+        # 国家区号字典
+        self.country_codes = {
+            "中国": "+86",
+            "中国香港": "+852", 
+            "中国台湾": "+886",
+            "中国澳门": "+853",
+            "新加坡": "+65",
+            "马来西亚": "+60",
+            "日本": "+81",
+            "韩国": "+82",
+            "美国": "+1",
+            "加拿大": "+1",
+            "英国": "+44",
+            "法国": "+33",
+            "德国": "+49",
+            "意大利": "+39",
+            "西班牙": "+34",
+            "葡萄牙": "+351",
+            "俄罗斯": "+7",
+            "澳大利亚": "+61",
+            "新西兰": "+64",
+            "印度": "+91",
+            "泰国": "+66",
+            "越南": "+84",
+            "菲律宾": "+63",
+            "印度尼西亚": "+62",
+            "阿联酋": "+971",
+            "沙特阿拉伯": "+966",
+            "巴西": "+55",
+            "墨西哥": "+52",
+            "南非": "+27",
+            "埃及": "+20"
+        }
         
         # 创建主滚动容器
         self.canvas = tk.Canvas(self.window, bg='#f8f9fa')
@@ -81,6 +116,20 @@ class XiaohongshuUI:
         # 手机号输入
         phone_frame = ttk.LabelFrame(self.main_container, text="🔐 登录信息", padding=15)
         phone_frame.pack(fill="x", pady=(0,15))
+        
+        # 新增国家区号下拉框
+        ttk.Label(phone_frame, text="🌏 国家区号:").pack(side="left")
+        country_combobox = ttk.Combobox(phone_frame, textvariable=self.country_code_var, width=15)
+        country_combobox['values'] = [f"{country}({code})" for country, code in self.country_codes.items()]
+        country_combobox.set("中国(+86)")  # 设置默认值
+        country_combobox.pack(side="left", padx=15)
+        
+        # 当选择改变时更新country_code_var
+        def on_country_select(event):
+            selected = country_combobox.get()
+            country_code = selected.split('(')[1].replace(')', '')
+            self.country_code_var.set(country_code)
+        country_combobox.bind('<<ComboboxSelected>>', on_country_select)
         
         ttk.Label(phone_frame, text="📱 手机号:").pack(side="left")
         phone_entry = ttk.Entry(phone_frame, textvariable=self.phone_var, width=30)
@@ -167,12 +216,13 @@ class XiaohongshuUI:
     def login(self):
         try:
             phone = self.phone_var.get()
+            country_code = self.country_code_var.get()
             if not phone:
                 messagebox.showerror("❌ 错误", "请输入手机号")
                 return
                 
             self.poster = XiaohongshuPoster()
-            self.poster.login(phone)
+            self.poster.login(phone, country_code=country_code)
             messagebox.showinfo("✅ 成功", "登录成功")
         except Exception as e:
             messagebox.showerror("❌ 错误", f"登录失败: {str(e)}")

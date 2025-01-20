@@ -60,7 +60,7 @@ class XiaohongshuPoster:
         with open(self.cookies_file, 'w') as f:
             json.dump(cookies, f)
             
-    def login(self, phone):
+    def login(self, phone, country_code="+86"):
         """登录小红书"""
         # 如果token有效则直接返回
         if self.token:
@@ -88,6 +88,24 @@ class XiaohongshuPoster:
 
         # 等待登录页面加载完成
         time.sleep(5)
+        # 点击国家区号输入框
+        country_input = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder='请选择选项']")))
+        country_input.click()
+        time.sleep(30)
+        
+        # 等待区号列表出现并点击+886
+        # 等待区号列表出现并点击+86
+        try:
+            self.driver.find_element(By.XPATH, "/html/body/div[1]/div/div/div/div[2]/div[1]/div[2]/div/div/div/div/div/div[2]/div[1]/div[1]/div/div/div[1]/input").click()
+            time.sleep(3)
+            self.driver.find_element(By.XPATH, "/html/body/div[1]/div/div/div/div[2]/div[1]/div[2]/div/div/div/div/div/div[2]/div[1]/div[1]/div/div/div[1]/input").send_keys(country_code)
+            time.sleep(3)
+            self.driver.find_element(By.XPATH, "/html/body/div[6]/div/div").click()
+            # china_option = self.wait.until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@class, 'css-cqcgee')]//div[contains(text(), '+86')]")))
+            time.sleep(5)
+        except Exception as e:
+            print("无法找到国家区号选项")
+            print(e)
         
         # 定位手机号输入框
         phone_input = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder='手机号']")))
@@ -191,10 +209,10 @@ class XiaohongshuPoster:
         """关闭浏览器"""
         self.driver.quit()
 
-if __name__ == "__main__":
-    poster = XiaohongshuPoster()
-    poster.login("18883179204")
-    print("登录成功")
-    print("开始发布文章")
-    poster.post_article("测试标题", "测试内容", [r"C:\Users\lenovo\Pictures\d52ab0d9f1cdf96bad2aaeef2e648e1.jpg"])
-    poster.close()
+# if __name__ == "__main__":
+#     poster = XiaohongshuPoster()
+#     poster.login("18883179204")
+#     print("登录成功")
+#     print("开始发布文章")
+#     poster.post_article("测试标题", "测试内容", [r"C:\Users\lenovo\Pictures\d52ab0d9f1cdf96bad2aaeef2e648e1.jpg"])
+#     poster.close()
