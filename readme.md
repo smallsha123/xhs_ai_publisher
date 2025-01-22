@@ -99,9 +99,8 @@
 ## 联系方式
 如果对项目有任何意见，欢迎加我微信交流：
 ### 微信
-![微信二维码](images/wechat_qr.jpg)
+<img src="images/wechat_qr.jpg" width="200" height="200">
 
 同时，欢迎关注我的公众号，获取更多信息：
 ### 公众号
-![公众号二维码](images/mp_qr.jpg)
-
+<img src="images/mp_qr.jpg" width="200" height="200">
