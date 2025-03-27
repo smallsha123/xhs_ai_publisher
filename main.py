@@ -2,9 +2,10 @@ import sys
 import signal
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                            QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QFrame,
-                           QProgressBar, QScrollArea)
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QPoint
-from PyQt6.QtGui import QPixmap, QImage, QPalette, QColor
+                           QProgressBar, QScrollArea, QGraphicsView, QGraphicsScene, QGraphicsOpacityEffect,
+                           QStackedWidget)
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QPoint, QRectF
+from PyQt6.QtGui import QPixmap, QImage, QPalette, QColor, QPainter, QPen, QBrush
 import os
 from src.core.write_xiaohongshu import XiaohongshuPoster
 import json
@@ -18,6 +19,19 @@ class LoadingWindow(QWidget):
         super().__init__(parent, Qt.WindowType.FramelessWindowHint)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        # 创建遮罩层
+        self.mask = QWidget(parent)
+        self.mask.setStyleSheet("background-color: rgba(0, 0, 0, 0.5);")
+        self.mask.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        self.mask.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.mask.setGeometry(parent.geometry())
+        self.mask.show()
+        self.mask.raise_()
+        
+        # 连接主窗口的 resize 事件
+        if parent:
+            parent.resizeEvent = lambda e: self.update_mask_geometry()
         
         self.setStyleSheet("""
             QWidget {
@@ -91,22 +105,41 @@ class LoadingWindow(QWidget):
         self.animation.timeout.connect(self._fade_step)
         self.opacity = 0.0
         
+    def update_mask_geometry(self):
+        if self.parent():
+            parent_rect = self.parent().geometry()
+            self.mask.setGeometry(parent_rect)
+            self.mask.raise_()
+            self.mask.show()
+    
     def showEvent(self, event):
         super().showEvent(event)
         if self.parent():
+            # 更新遮罩层大小
+            self.update_mask_geometry()
+            
             # 获取主窗口的实际位置和大小
-            parent_pos = self.parent().pos()
             parent_size = self.parent().size()
             
             # 计算弹窗位置，使其在主窗口中心
-            x = parent_pos.x() + (parent_size.width() - self.width()) // 2
-            y = parent_pos.y() + (parent_size.height() - self.height()) // 2
-            
+            x = (parent_size.width() - self.width()) // 2
+            y = (parent_size.height() - self.height()) // 2
             # 移动到计算出的位置
             self.move(x, y)
             
+            # 确保遮罩层在最上层
+            self.mask.raise_()
+            self.mask.show()
+            self.raise_()
+            
             # 开始淡入动画
             self.animation.start(30)
+    
+    def closeEvent(self, event):
+        # 关闭遮罩层
+        if hasattr(self, 'mask'):
+            self.mask.close()
+        super().closeEvent(event)
     
     def _fade_step(self):
         if self.opacity >= 1.0:
@@ -131,7 +164,6 @@ class TipWindow(QWidget):
             QFrame {
                 background-color: #2c3e50;
                 border-radius: 10px;
-                border: 2px solid #3498db;
             }
             QLabel {
                 color: white;
@@ -205,13 +237,11 @@ class TipWindow(QWidget):
         super().showEvent(event)
         if self.parent():
             # 获取主窗口的实际位置和大小
-            parent_pos = self.parent().pos()
             parent_size = self.parent().size()
             
             # 计算弹窗位置，使其在主窗口中心
-            x = parent_pos.x() + (parent_size.width() - self.width()) // 2
-            y = parent_pos.y() + (parent_size.height() - self.height()) // 2
-            
+            x = (parent_size.width() - self.width()) // 2
+            y = 30
             # 移动到计算出的位置
             self.move(x, y)
     
@@ -439,18 +469,99 @@ class XiaohongshuUI(QMainWindow):
             QScrollArea {{
                 border: none;
             }}
+            #sidebar {{
+                background-color: #2c3e50;
+                min-width: 60px;
+                max-width: 60px;
+                padding: 20px 0;
+            }}
+            #sidebar QPushButton {{
+                background-color: transparent;
+                border: none;
+                border-radius: 0;
+                color: #ecf0f1;
+                padding: 15px 0;
+                margin: 5px 0;
+                font-size: 20px;
+            }}
+            #sidebar QPushButton:hover {{
+                background-color: #34495e;
+            }}
+            #sidebar QPushButton:checked {{
+                background-color: #34495e;
+            }}
+            #settingsPage {{
+                background-color: white;
+                padding: 20px;
+            }}
         """)
         
-        # 设置窗口大小
-        self.resize(1000, 600)
+        self.setMinimumSize(1000, 600)
+        self.center()
         
-        # 获取屏幕几何信息
-        screen = QApplication.primaryScreen().availableGeometry()
+        # 创建主窗口部件
+        main_widget = QWidget()
+        self.setCentralWidget(main_widget)
         
-        # 计算窗口位置使其居中
-        x = (screen.width() - self.width()) // 2
-        y = (screen.height() - self.height()) // 2
-        self.setGeometry(x, y, self.width(), self.height())
+        # 创建水平布局
+        main_layout = QHBoxLayout(main_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # 创建侧边栏
+        sidebar = QWidget()
+        sidebar.setObjectName("sidebar")
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.setSpacing(0)
+        
+        # 创建侧边栏按钮
+        home_btn = QPushButton("🏠")
+        home_btn.setCheckable(True)
+        home_btn.setChecked(True)
+        home_btn.clicked.connect(lambda: self.switch_page(0))
+        
+        settings_btn = QPushButton("⚙️")
+        settings_btn.setCheckable(True)
+        settings_btn.clicked.connect(lambda: self.switch_page(1))
+        
+        sidebar_layout.addWidget(home_btn)
+        sidebar_layout.addWidget(settings_btn)
+        sidebar_layout.addStretch()
+        
+        # 添加侧边栏到主布局
+        main_layout.addWidget(sidebar)
+        
+        # 创建堆叠窗口部件
+        self.stack = QStackedWidget()
+        main_layout.addWidget(self.stack)
+        
+        # 创建主页面
+        home_page = QWidget()
+        home_layout = QVBoxLayout(home_page)
+        home_layout.setContentsMargins(15, 10, 15, 10)
+        home_layout.setSpacing(8)
+        
+        # 创建设置页面
+        settings_page = QWidget()
+        settings_page.setObjectName("settingsPage")
+        settings_layout = QVBoxLayout(settings_page)
+        settings_layout.setContentsMargins(20, 20, 20, 20)
+        settings_layout.setSpacing(10)
+        
+        # 添加版本信息
+        version_label = QLabel("版本号: v1.0.0")
+        version_label.setStyleSheet("""
+            font-size: 14pt;
+            color: #2c3e50;
+            font-weight: bold;
+        """)
+        settings_layout.addWidget(version_label)
+        settings_layout.addStretch()
+        
+        # 将页面添加到堆叠窗口
+        self.stack.addWidget(home_page)
+        self.stack.addWidget(settings_page)
         
         # 初始化变量
         self.images = []
@@ -458,29 +569,34 @@ class XiaohongshuUI(QMainWindow):
         self.current_image_index = 0
         
         # 创建占位图
-        self.placeholder_photo = QPixmap(200, 200)  # 减小占位图尺寸
+        self.placeholder_photo = QPixmap(200, 200)
         self.placeholder_photo.fill(QColor('#f8f9fa'))
         
-        # 创建主窗口部件和布局
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(15, 10, 15, 10)  # 减小边距
-        main_layout.setSpacing(8)  # 减小间距
-        
         # 创建登录区域
-        self.create_login_section(main_layout)
+        self.create_login_section(home_layout)
         
         # 创建内容区域
         content_layout = QHBoxLayout()
-        content_layout.setSpacing(15)  # 设置左右两侧的间距
-        main_layout.addLayout(content_layout)
+        content_layout.setSpacing(15)
+        home_layout.addLayout(content_layout)
         
         # 创建左侧区域
         self.create_left_section(content_layout)
         
         # 创建右侧预览区域
         self.create_preview_section(content_layout)
+    
+    def center(self):
+        """将窗口移动到屏幕中央"""
+        # 获取屏幕几何信息
+        screen = QApplication.primaryScreen().geometry()
+        # 获取窗口几何信息
+        size = self.geometry()
+        # 计算居中位置
+        x = (screen.width() - size.width()) // 2
+        y = (screen.height() - size.height()) // 2
+        # 移动窗口
+        self.move(x, y)
     
     def create_login_section(self, parent_layout):
         login_frame = QFrame()
@@ -936,6 +1052,17 @@ class XiaohongshuUI(QMainWindow):
             
         except Exception as e:
             TipWindow(self, f"❌ 预览发布失败: {str(e)}").show()
+    
+    def switch_page(self, index):
+        # 切换页面
+        self.stack.setCurrentIndex(index)
+        
+        # 更新按钮状态
+        sidebar = self.findChild(QWidget, "sidebar")
+        if sidebar:
+            buttons = [btn for btn in sidebar.findChildren(QPushButton)]
+            for i, btn in enumerate(buttons):
+                btn.setChecked(i == index)
 
 if __name__ == "__main__":
     # 设置信号处理
