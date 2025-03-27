@@ -6,7 +6,152 @@ import json
 import requests
 from PIL import Image, ImageTk
 import io
+import threading
 
+
+# 加载提示窗口类
+class LoadingWindow:
+    def __init__(self, parent):
+        self.top = tk.Toplevel(parent)
+        self.top.title("")
+        # 设置窗口大小和位置
+        window_width = 300
+        window_height = 150
+        screen_width = parent.winfo_screenwidth()
+        screen_height = parent.winfo_screenheight()
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        self.top.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        
+        # 设置窗口样式
+        self.top.configure(bg='#f8f9fa')
+        self.top.transient(parent)  # 设置为父窗口的临时窗口
+        self.top.grab_set()  # 模态窗口
+        self.top.resizable(False, False)  # 禁止调整大小
+        
+        # 创建加载动画
+        self.loading_frame = ttk.Frame(self.top, style='Preview.TFrame')
+        self.loading_frame.pack(expand=True, fill='both')
+        
+        # 加载提示文字
+        self.loading_label = ttk.Label(
+            self.loading_frame,
+            text="✨ 正在生成内容...",
+            font=('微软雅黑', 14, 'bold'),
+            style='Preview.TLabel'
+        )
+        self.loading_label.pack(pady=(20, 10))
+        
+        # 进度条
+        self.progress = ttk.Progressbar(
+            self.loading_frame,
+            mode='indeterminate',
+            length=200
+        )
+        self.progress.pack(pady=10)
+        self.progress.start(10)  # 开始进度条动画
+        
+        # 提示文字
+        self.tip_label = ttk.Label(
+            self.loading_frame,
+            text="请稍候，正在为您生成精美内容",
+            font=('微软雅黑', 12),
+            style='Preview.TLabel'
+        )
+        self.tip_label.pack(pady=10)
+        
+    def destroy(self):
+        self.top.destroy()
+
+# 在LoadingWindow类后面添加新的提示窗口类
+class TipWindow:
+    def __init__(self, parent, message, duration=2000):  # duration单位为毫秒
+        self.top = tk.Toplevel(parent)
+        self.top.title("")
+        
+        # 设置窗口样式
+        self.top.configure(bg='#2c3e50')
+        self.top.overrideredirect(True)  # 移除窗口边框
+        self.top.attributes('-alpha', 0.95)  # 设置透明度
+        
+        # 创建主框架
+        main_frame = tk.Frame(self.top, bg='#2c3e50')
+        main_frame.pack(fill='both', expand=True)
+        
+        # 创建图标和消息的容器
+        content_frame = tk.Frame(main_frame, bg='#2c3e50')
+        content_frame.pack(pady=12, padx=20)
+        
+        # 根据消息类型选择图标
+        icon = "❌" if "❌" in message else "✅" if "✅" in message else "ℹ️"
+        message = message.replace("❌", "").replace("✅", "").strip()
+        
+        # 创建图标标签
+        icon_label = tk.Label(
+            content_frame,
+            text=icon,
+            font=('微软雅黑', 16),
+            fg='white',
+            bg='#2c3e50'
+        )
+        icon_label.pack(side='left', padx=(0, 10))
+        
+        # 创建消息标签
+        self.label = tk.Label(
+            content_frame,
+            text=message,
+            font=('微软雅黑', 13),
+            fg='white',
+            bg='#2c3e50',
+            justify='left'
+        )
+        self.label.pack(side='left')
+        
+        # 添加底部装饰条
+        decoration = tk.Frame(self.top, height=3, bg='#3498db')
+        decoration.pack(side='bottom', fill='x')
+        
+        # 获取父窗口位置和大小
+        parent_x = parent.winfo_x()
+        parent_y = parent.winfo_y()
+        parent_width = parent.winfo_width()
+        parent_height = parent.winfo_height()
+        
+        # 计算提示窗口位置（居中偏上显示）
+        self.top.update_idletasks()  # 更新窗口大小
+        window_width = self.top.winfo_width()
+        window_height = self.top.winfo_height()
+        x = parent_x + (parent_width - window_width) // 2
+        y = parent_y + parent_height // 4  # 显示在窗口上方1/4处
+        
+        # 设置窗口位置
+        self.top.geometry(f"+{x}+{y}")
+        
+        # 添加淡入淡出效果
+        self.fade_in()
+        
+        # 设置定时器关闭窗口
+        self.top.after(duration, self.fade_out)
+    
+    def fade_in(self):
+        alpha = 0.0
+        while alpha < 0.95:
+            alpha += 0.1
+            self.top.attributes('-alpha', alpha)
+            self.top.update()
+            self.top.after(20)
+    
+    def fade_out(self):
+        alpha = 0.95
+        while alpha > 0:
+            alpha -= 0.1
+            self.top.attributes('-alpha', alpha)
+            self.top.update()
+            self.top.after(20)
+        self.destroy()
+    
+    def destroy(self):
+        self.top.destroy()
 
 # 小红书发布助手ui
 class XiaohongshuUI:
@@ -242,74 +387,95 @@ class XiaohongshuUI:
             if not input_text:
                 messagebox.showerror("❌ 错误", "请输入内容")
                 return
-                
-            workflow_id = "7431484143153070132"
-            parameters = {
-                "BOT_USER_INPUT": input_text,
-                "HEADER_TITLE": self.header_var.get(),
-                "AUTHOR": self.author_var.get()
-            }
             
-            # 调用API
-            response = requests.post(
-                "http://8.137.103.115:8081/workflow/run",
-                json={
-                    "workflow_id": workflow_id,
-                    "parameters": parameters
-                }
-            )
-            print(response.content)
+            # 显示加载窗口
+            loading_window = LoadingWindow(self.window)
             
-            if response.status_code != 200:
-                raise Exception("API调用失败")
-                
-            res = response.json()
+            # 创建线程执行生成内容的操作
+            def generate():
+                try:
+                    workflow_id = "7431484143153070132"
+                    parameters = {
+                        "BOT_USER_INPUT": input_text,
+                        "HEADER_TITLE": self.header_var.get(),
+                        "AUTHOR": self.author_var.get()
+                    }
+                    
+                    # 调用API
+                    response = requests.post(
+                        "http://8.137.103.115:8081/workflow/run",
+                        json={
+                            "workflow_id": workflow_id,
+                            "parameters": parameters
+                        }
+                    )
+                    print(response.content)
+                    
+                    if response.status_code != 200:
+                        raise Exception("API调用失败")
+                        
+                    res = response.json()
+                    
+                    # 解析返回结果
+                    print(res)
+                    output_data = json.loads(res['data'])
+                    title = json.loads(output_data['output'])['title']
+                    
+                    # 在主线程中更新UI
+                    self.window.after(0, lambda: self.update_ui_after_generate(
+                        title,
+                        output_data['content'],
+                        json.loads(res['data'])['image'],
+                        json.loads(res['data'])['image_content'],
+                        input_text
+                    ))
+                    
+                except Exception as e:
+                    import traceback
+                    error_details = traceback.format_exc()
+                    self.window.after(0, lambda: messagebox.showerror("❌ 错误", f"生成内容失败: {str(e)}\n{error_details}"))
+                finally:
+                    # 关闭加载窗口
+                    self.window.after(0, loading_window.destroy)
             
-            # 解析返回结果
-            print(res)
-            output_data = json.loads(res['data'])
-            title = json.loads(output_data['output'])['title']
-            self.title_var.set(title)
-            
-            # 获取生成的内容作为副标题
-            content = output_data['content']
-            self.subtitle_var.set(content)
-            
-            # 获取图片
-            cover_image_url = json.loads(res['data'])['image']
-            content_image_urls = json.loads(res['data'])['image_content']
-            
-            # 清空之前的图片列表
-            self.images = []
-            self.image_list = []
-            self.current_image_index = 0  # 重置当前图片索引
-            
-            # 下载并显示图片
-            self.download_and_show_image(cover_image_url, "封面图")
-            for i, url in enumerate(content_image_urls):
-                self.download_and_show_image(url, f"内容图{i+1}")
-            
-            # 显示第一张图片
-            if self.image_list:
-                self.show_current_image()
-                
-            # 显示生成的内容
-            self.input_text_widget.delete("1.0", tk.END)
-            self.input_text_widget.insert("1.0", input_text)
-            
-            messagebox.showinfo("✅ 成功", "✨ 内容生成完成")
+            # 启动线程
+            threading.Thread(target=generate, daemon=True).start()
             
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
             messagebox.showerror("❌ 错误", f"生成内容失败: {str(e)}\n{error_details}")
+            
+    def update_ui_after_generate(self, title, content, cover_image_url, content_image_urls, input_text):
+        """在主线程中更新UI"""
+        # 更新标题和内容
+        self.title_var.set(title)
+        self.subtitle_var.set(content)
+        
+        # 清空之前的图片列表
+        self.images = []
+        self.image_list = []
+        self.current_image_index = 0
+        
+        # 下载并显示图片
+        self.download_and_show_image(cover_image_url, "封面图")
+        for i, url in enumerate(content_image_urls):
+            self.download_and_show_image(url, f"内容图{i+1}")
+        
+        # 显示第一张图片
+        if self.image_list:
+            self.show_current_image()
+            
+        # 显示生成的内容
+        self.input_text_widget.delete("1.0", tk.END)
+        self.input_text_widget.insert("1.0", input_text)
 
     def download_and_show_image(self, url, title):
         try:
             response = requests.get(url)
             if response.status_code == 200:
                 # 保存图片
-                img_path = os.path.join(os.path.dirname(__file__), f'{title}.jpg')
+                img_path = os.path.join(os.path.dirname(__file__), f'/static/images/{title}.jpg')
                 with open(img_path, 'wb') as f:
                     f.write(response.content)
                 self.images.append(img_path)
@@ -371,17 +537,20 @@ class XiaohongshuUI:
     def preview_post(self):
         try:
             if not hasattr(self, 'poster'):
-                messagebox.showerror("❌ 错误", "请先登录")
+                # 显示自定义提示
+                TipWindow(self.window, "❌ 请先登录")
                 return
                 
             title = self.title_var.get()
             content = self.subtitle_var.get()
                 
             self.poster.post_article(title, content, self.images)
-            messagebox.showinfo("✅ 成功", "🎉 文章已准备好,请在浏览器中检查并发布")
+            # 显示成功提示
+            TipWindow(self.window, "🎉 文章已准备好，请在浏览器中检查并发布")
             
         except Exception as e:
-            messagebox.showerror("❌ 错误", f"预览发布失败: {str(e)}")
+            # 显示错误提示
+            TipWindow(self.window, f"❌ 预览发布失败: {str(e)}")
 
     def run(self):
         self.window.mainloop()

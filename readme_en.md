@@ -11,6 +11,25 @@
 
 ![Software Interface](images/ui.png)
 
+## Directory Structure
+```
+xhs_ai_publisher/
+├── src/                    #Source code directory
+│   └── core/               Core function modules
+│       ├── write_xiaohongshu.py     Xiaohongshu automation module
+│       └── xiaohongshu_cookies.json  Login credentials storage file
+├── static/                 Image resource directory
+├── test/                    Test directory
+├── build/                  Build output directory
+├── main.py                  Main program entry
+├── requirements.txt       Python dependency list
+├── environment.yml         conda environment config file
+├── readme.md              Chinese documentation
+├── readme_en.md          English documentation
+└── .gitignore             Git ignore file configuration
+```
+
+
 ## Key Features
 
 - **User Login**: Login to Xiaohongshu account via phone number, with support for automatic credential saving and loading.
