@@ -13,6 +13,7 @@ import requests
 from PIL import Image
 import io
 import threading
+from PyQt6.QtCore import QEvent
 
 class LoadingWindow(QWidget):
     def __init__(self, parent=None):
@@ -21,13 +22,28 @@ class LoadingWindow(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
         # 创建遮罩层
-        self.mask = QWidget(parent)
-        self.mask.setStyleSheet("background-color: rgba(0, 0, 0, 0.5);")
+        self.mask = QGraphicsView(parent)
+        self.mask.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.mask.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
+        self.mask.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.mask.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.mask.setStyleSheet("background: transparent;")
         self.mask.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.mask.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        # 创建场景
+        self.scene = QGraphicsScene()
+        self.mask.setScene(self.scene)
+        # 创建半透明遮罩矩形
+        self.rect_item = self.scene.addRect(0, 0, parent.width(), parent.height(), 
+                                          QPen(Qt.PenStyle.NoPen),
+                                          QBrush(QColor(0, 0, 0, 128)))  # 128 = 0.5 * 255
         self.mask.setGeometry(parent.geometry())
         self.mask.show()
         self.mask.raise_()
+        
+        # 设置遮罩层事件过滤器，阻止所有鼠标事件
+        self.mask.installEventFilter(self)
         
         # 连接主窗口的 resize 事件
         if parent:
@@ -104,34 +120,44 @@ class LoadingWindow(QWidget):
         self.animation = QTimer()
         self.animation.timeout.connect(self._fade_step)
         self.opacity = 0.0
-        
+    
+    def eventFilter(self, obj, event):
+        # 阻止遮罩层的所有鼠标事件
+        if obj == self.mask and event.type() in [
+            QEvent.Type.MouseButtonPress,
+            QEvent.Type.MouseButtonRelease,
+            QEvent.Type.MouseButtonDblClick,
+            QEvent.Type.MouseMove
+        ]:
+            return True
+        return super().eventFilter(obj, event)
+    
     def update_mask_geometry(self):
         if self.parent():
+            # 获取主窗口的几何信息
             parent_rect = self.parent().geometry()
-            self.mask.setGeometry(parent_rect)
+            # 更新遮罩层大小和位置
+            self.mask.setGeometry(0, 0, parent_rect.width(), parent_rect.height())
+            # 更新场景大小
+            self.scene.setSceneRect(0, 0, parent_rect.width(), parent_rect.height())
+            # 更新矩形大小
+            self.rect_item.setRect(0, 0, parent_rect.width(), parent_rect.height())
             self.mask.raise_()
             self.mask.show()
+            
+            # 更新加载窗口位置
+            x = (parent_rect.width() - self.width()) // 2
+            y = (parent_rect.height() - self.height()) // 2
+            self.move(x, y)
     
     def showEvent(self, event):
         super().showEvent(event)
         if self.parent():
-            # 更新遮罩层大小
+            # 更新遮罩层大小和位置
             self.update_mask_geometry()
-            
-            # 获取主窗口的实际位置和大小
-            parent_size = self.parent().size()
-            
-            # 计算弹窗位置，使其在主窗口中心
-            x = (parent_size.width() - self.width()) // 2
-            y = (parent_size.height() - self.height()) // 2
-            # 移动到计算出的位置
-            self.move(x, y)
-            
-            # 确保遮罩层在最上层
+            # 确保遮罩层和加载窗口在最上层
             self.mask.raise_()
-            self.mask.show()
             self.raise_()
-            
             # 开始淡入动画
             self.animation.start(30)
     
