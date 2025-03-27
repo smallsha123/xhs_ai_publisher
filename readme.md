@@ -11,6 +11,26 @@
 
 ![软件界面效果](./images/ui.png)
 
+## 目录介绍
+xhs_ai_publisher/
+├── src/                    #源代码目录
+│   └── core/               核心功能模块
+│       ├── write_xiaohongshu.py     小红书自动化操作模块
+│       └── xiaohongshu_cookies.json  登录凭证存储文件
+├── images/                 图片资源目录
+├── test/                    测试目录
+├── build/                  #构建输出目录
+├── main.py                  主程序入口
+├── easy_ui.py             图形界面模块
+├── xiaohongshu_img.py     图片处理模块
+├── requirements.txt       Python依赖包列表
+├── environment.yml         环境配置文件
+├── readme.md              中文说明文档
+├── readme_en.md          英文说明文档
+└── .gitignore             Git忽略文件配置
+
+
+
 ## 功能特点
 
 - **用户登录**：通过手机号登录小红书账户，支持自动保存和加载登录凭证。
