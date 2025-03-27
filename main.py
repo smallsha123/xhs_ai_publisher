@@ -23,6 +23,10 @@ class XiaohongshuUI:
         y = (screen_height - 800) // 2
         self.window.geometry(f"1400x800+{x}+{y}")
         
+        # 创建占位图
+        placeholder = Image.new('RGB', (300, 300), '#f8f9fa')
+        self.placeholder_photo = ImageTk.PhotoImage(placeholder)
+        
         # 设置主题样式
         style = ttk.Style()
         style.theme_use('clam')
@@ -42,6 +46,10 @@ class XiaohongshuUI:
                        font=('微软雅黑', 13),
                        fieldbackground='#ffffff',
                        borderwidth=1)
+        
+        # 预览区域样式
+        style.configure('Preview.TFrame', background='#f8f9fa')
+        style.configure('Preview.TLabel', background='#f8f9fa')
         
         # 初始化变量
         self.phone_var = tk.StringVar()
@@ -93,6 +101,8 @@ class XiaohongshuUI:
         self.create_widgets()
         
         self.images = []
+        self.image_list = []
+        self.current_image_index = 0  # 添加当前图片索引的初始化
         
     def create_widgets(self):
         # 手机号输入
@@ -177,11 +187,40 @@ class XiaohongshuUI:
         self.preview_frame = ttk.LabelFrame(content_container, text="🖼️ 图片预览", padding=15)
         self.preview_frame.pack(side="right", fill="both", expand=True)
         
-        # 创建图片预览的画布
-        self.preview_canvas = tk.Canvas(self.preview_frame, bg='#ffffff')
-        self.preview_container = ttk.Frame(self.preview_canvas)
+        # 创建图片预览的容器
+        self.preview_container = ttk.Frame(self.preview_frame, style='Preview.TFrame')
+        self.preview_container.pack(fill="both", expand=True)
         
-        self.preview_canvas.pack(side="left", fill="both", expand=True)
+        # 创建图片显示区域
+        self.image_frame = ttk.Frame(self.preview_container, style='Preview.TFrame')
+        self.image_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # 创建图片标签
+        self.image_label = ttk.Label(self.image_frame, style='Preview.TLabel')
+        self.image_label.pack(expand=True)
+        
+        # 显示占位图
+        self.image_label.configure(image=self.placeholder_photo)
+        self.image_label.image = self.placeholder_photo
+        
+        # 创建标题标签
+        self.image_title_label = ttk.Label(self.image_frame, text="暂无图片", font=('微软雅黑', 13, 'bold'), style='Preview.TLabel')
+        self.image_title_label.pack(pady=(8,0))
+        
+        # 创建按钮区域
+        button_frame = ttk.Frame(self.preview_container, style='Preview.TFrame')
+        button_frame.pack(fill="x", pady=(0,10))
+        
+        # 添加左右切换按钮
+        self.prev_btn = ttk.Button(button_frame, text="◀️ 上一张", command=self.prev_image)
+        self.prev_btn.pack(side="left", padx=5)
+        
+        self.next_btn = ttk.Button(button_frame, text="下一张 ▶️", command=self.next_image)
+        self.next_btn.pack(side="right", padx=5)
+        
+        # 初始化时禁用按钮
+        self.prev_btn.state(['disabled'])
+        self.next_btn.state(['disabled'])
 
     def login(self):
         try:
@@ -240,15 +279,19 @@ class XiaohongshuUI:
             cover_image_url = json.loads(res['data'])['image']
             content_image_urls = json.loads(res['data'])['image_content']
             
-            # 清空之前的图片
-            for widget in self.preview_container.winfo_children():
-                widget.destroy()
+            # 清空之前的图片列表
+            self.images = []
+            self.image_list = []
+            self.current_image_index = 0  # 重置当前图片索引
             
             # 下载并显示图片
-            self.images = []
             self.download_and_show_image(cover_image_url, "封面图")
             for i, url in enumerate(content_image_urls):
                 self.download_and_show_image(url, f"内容图{i+1}")
+            
+            # 显示第一张图片
+            if self.image_list:
+                self.show_current_image()
                 
             # 显示生成的内容
             self.input_text_widget.delete("1.0", tk.END)
@@ -273,19 +316,57 @@ class XiaohongshuUI:
                 
                 # 显示图片预览
                 image = Image.open(io.BytesIO(response.content))
-                image = image.resize((125, 125), Image.LANCZOS)  # 缩小预览图尺寸
+                # 计算合适的图片大小，保持宽高比
+                display_size = (300, 300)  # 目标显示大小
+                image.thumbnail(display_size, Image.LANCZOS)
                 photo = ImageTk.PhotoImage(image)
                 
-                frame = ttk.Frame(self.preview_container)
-                frame.pack(side="top", pady=10)
-                
-                label = ttk.Label(frame, image=photo)
-                label.image = photo
-                label.pack()
-                ttk.Label(frame, text=title, font=('微软雅黑', 13, 'bold')).pack(pady=(8,0))
+                # 保存图片和标题信息
+                self.image_list.append({
+                    'photo': photo,
+                    'title': title
+                })
                 
         except Exception as e:
             print(f"下载图片失败: {str(e)}")
+
+    def show_current_image(self):
+        if not self.image_list:
+            # 如果没有图片，显示占位图
+            self.image_label.configure(image=self.placeholder_photo)
+            self.image_label.image = self.placeholder_photo
+            self.image_title_label.configure(text="暂无图片")
+            self.update_button_states()
+            return
+            
+        current_image = self.image_list[self.current_image_index]
+        self.image_label.configure(image=current_image['photo'])
+        self.image_label.image = current_image['photo']  # 保持引用
+        self.image_title_label.configure(text=current_image['title'])
+        self.update_button_states()
+        print(f"当前图片索引: {self.current_image_index}, 总图片数: {len(self.image_list)}")  # 添加调试信息
+
+    def update_button_states(self):
+        if not self.image_list:
+            self.prev_btn.state(['disabled'])
+            self.next_btn.state(['disabled'])
+            return
+            
+        # 当有图片时，按钮永远可用，因为是循环切换
+        self.prev_btn.state(['!disabled'])
+        self.next_btn.state(['!disabled'])
+
+    def prev_image(self):
+        if self.image_list:
+            # 循环切换到上一张，如果是第一张则切换到最后一张
+            self.current_image_index = (self.current_image_index - 1) % len(self.image_list)
+            self.show_current_image()
+
+    def next_image(self):
+        if self.image_list:
+            # 循环切换到下一张，如果是最后一张则切换到第一张
+            self.current_image_index = (self.current_image_index + 1) % len(self.image_list)
+            self.show_current_image()
 
     def preview_post(self):
         try:
