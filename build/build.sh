@@ -5,6 +5,13 @@ rm -rf temp_build
 # 安装必要工具
 # brew install create-dmg imagemagick
 
+# 检查并安装 playwright
+if ! pip show playwright > /dev/null 2>&1; then
+    echo "正在安装 playwright..."
+    pip install playwright
+    playwright install
+fi
+
 # 创建圆角图标 (增加圆角半径，更接近 macOS 风格)
 convert icon.png \
     -gravity south \
@@ -50,6 +57,10 @@ pyinstaller  \
     --paths ".." \
     --collect-submodules src \
     --hidden-import imaplib \
+    --hidden-import playwright \
+    --hidden-import playwright.sync_api \
+    --hidden-import playwright.async_api \
+    --add-data "$HOME/Library/Caches/ms-playwright:ms-playwright" \
     ../main.py
 
 # 打包完成后清理临时文件
