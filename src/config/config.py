@@ -60,10 +60,12 @@ class Config:
         """获取邮箱配置"""
         return self.config.get('title_edit', self.default_config['title_edit'])
 
-    def update_title_config(self, author, title):
+    def update_title_config(self, title):
         """更新邮箱配置"""
-        self.config['title_edit'] = {
-            "author": author,
-            "title": title
-        }
+        self.config['title_edit']['title'] = title
+        self.save_config()
+
+    def update_author_config(self, author):
+        """更新邮箱配置"""
+        self.config['title_edit'][author] = author
         self.save_config()
