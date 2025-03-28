@@ -12,6 +12,13 @@ if errorlevel 1 (
 :: 检查并安装必要的包
 echo 检查并安装必要的包...
 
+:: 检查 playwright 是否安装
+pip show playwright >nul 2>&1
+if errorlevel 1 (
+    echo 正在安装 playwright...
+    pip install playwright
+    playwright install
+)
 
 :: 检查 pyinstaller 是否安装
 pip show pyinstaller >nul 2>&1
@@ -27,14 +34,12 @@ if errorlevel 1 (
     pip install certifi
 )
 
-
 :: 检查文件是否存在
 if not exist "icon.png" (
     echo icon.png 文件不存在
     pause
     exit /b
 )
-
 
 if not exist "create_ico.py" (
     echo create_ico.py 文件不存在
@@ -43,7 +48,6 @@ if not exist "create_ico.py" (
 )
 
 python create_ico.py
-
 
 :: 清理之前的构建
 rmdir /s /q build dist
@@ -68,6 +72,10 @@ pyinstaller ^
     --paths "%SITE_PACKAGES%" ^
     --collect-submodules src ^
     --hidden-import imaplib ^
+    --hidden-import playwright ^
+    --hidden-import playwright.sync_api ^
+    --hidden-import playwright.async_api ^
+    --add-data "%LOCALAPPDATA%\ms-playwright;ms-playwright" ^
     ../main.py
 
 :: 打包完成后清理临时文件
