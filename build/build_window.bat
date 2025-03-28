@@ -74,6 +74,7 @@ pyinstaller ^
     --hidden-import imaplib ^
     --hidden-import playwright ^
     --hidden-import playwright.sync_api ^
+    --hidden-import playwright._impl._driver ^
     --hidden-import playwright.async_api ^
     --add-data "%LOCALAPPDATA%\ms-playwright;ms-playwright" ^
     ../main.py
