@@ -5,8 +5,9 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                            QProgressBar, QScrollArea, QGraphicsView, QGraphicsScene, QGraphicsOpacityEffect,
                            QStackedWidget)
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QPoint, QRectF
-from PyQt6.QtGui import QPixmap, QImage, QPalette, QColor, QPainter, QPen, QBrush
+from PyQt6.QtGui import QPixmap, QImage, QPalette, QColor, QPainter, QPen, QBrush,QIcon
 import os
+from src.config.config import Config
 from src.core.write_xiaohongshu import XiaohongshuPoster
 import json
 import requests
@@ -14,6 +15,7 @@ from PIL import Image
 import io
 import threading
 from PyQt6.QtCore import QEvent
+from src.logger.logger import Logger
 
 class LoadingWindow(QWidget):
     def __init__(self, parent=None):
@@ -104,7 +106,7 @@ class LoadingWindow(QWidget):
         layout.addWidget(self.progress)
         
         # 提示文字
-        tip_label = QLabel("请稍候，正在为您生成精美内容", self)
+        tip_label = QLabel("奋力生成中", self)
         tip_label.setStyleSheet(f"""
             font-family: {("Menlo" if sys.platform == "darwin" else "Consolas")};
             font-size: 12pt;
@@ -417,6 +419,21 @@ class ImageProcessorThread(QThread):
 class XiaohongshuUI(QMainWindow):
     def __init__(self):
         super().__init__()
+        
+        self.config = Config()
+
+        # 设置应用图标 - 需要在应用级别设置
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build/icon.png')
+        self.app_icon = QIcon(icon_path)
+        QApplication.setWindowIcon(self.app_icon)  # 设置应用级别的图标
+        self.setWindowIcon(self.app_icon)  # 设置窗口图标
+        
+        #加载logger
+        app_config = self.config.get_app_config()
+        self.logger = Logger(is_console=app_config)
+
+        self.logger.success("小红书发文助手启动")
+
         # 初始化国家区号
         self.country_codes = {
             "中国": "+86",
@@ -737,7 +754,7 @@ class XiaohongshuUI(QMainWindow):
         header_label = QLabel("🏷️ 眉头标题")
         header_label.setFixedWidth(100)  # 增加标签宽度
         header_input_layout.addWidget(header_label)
-        self.header_input = QLineEdit("大模型技术分享")
+        self.header_input = QLineEdit(self.config.get_title_config()['title'])
         self.header_input.setMinimumWidth(250)  # 增加输入框最小宽度
         header_input_layout.addWidget(self.header_input)
         title_layout.addLayout(header_input_layout)
@@ -748,7 +765,7 @@ class XiaohongshuUI(QMainWindow):
         author_label = QLabel("👤 作者")
         author_label.setFixedWidth(100)  # 增加标签宽度
         author_input_layout.addWidget(author_label)
-        self.author_input = QLineEdit("贝塔街的万事屋")
+        self.author_input = QLineEdit(self.config.get_title_config()['author'])
         self.author_input.setMinimumWidth(250)  # 增加输入框最小宽度
         author_input_layout.addWidget(self.author_input)
         title_layout.addLayout(author_input_layout)
