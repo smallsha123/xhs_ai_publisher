@@ -18,6 +18,12 @@ xhs_ai_publisher/
 │   └── core/               核心功能模块
 │       ├── write_xiaohongshu.py     小红书自动化操作模块
 │       └── xiaohongshu_cookies.json  登录凭证存储文件
+│   └── cron/               定时任务
+│       ├── cron_base.py     定时
+│   └── logger/              日志模块
+│       ├── logger.py     日志
+│   └── config/             配置
+│       ├── config.py      配置文件
 ├── static/                 图片资源目录
 ├── test/                    测试目录
 ├── build/                  构建输出目录

@@ -27,24 +27,33 @@ dependencies:
       - certifi==2025.1.31
       - charset-normalizer==3.4.1
       - click==8.1.8
+      - colorama==0.4.6
       - greenlet==3.0.3
       - h11==0.14.0
       - idna==3.10
       - macholib==1.16.3
+      - markdown-it-py==3.0.0
+      - mdurl==0.1.2
       - outcome==1.3.0.post0
       - packaging==24.2
       - pillow==11.1.0
       - playwright==1.46.0
       - pydantic==1.10.13
       - pyee==11.1.0
+      - pygments==2.19.1
       - pyinstaller==6.10.0
       - pyinstaller-hooks-contrib==2025.2
-      - pyqt6==6.8.1
+      - pyqt5==5.15.11
+      - pyqt5-qt5==5.15.16
+      - pyqt5-sip==12.17.0
+      - pyqt6==6.5.3
       - pyqt6-qt6==6.8.2
       - pyqt6-sip==13.10.0
       - pysocks==1.7.1
       - python-dotenv==1.1.0
       - requests==2.32.3
+      - rich==13.9.4
+      - rprint==0.0.8
       - selenium==4.27.1
       - sniffio==1.3.1
       - sortedcontainers==2.4.0

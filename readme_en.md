@@ -14,10 +14,15 @@
 ## Directory Structure
 ```
 xhs_ai_publisher/
-├── src/                    #Source code directory
-│   └── core/               Core function modules
-│       ├── write_xiaohongshu.py     Xiaohongshu automation module
-│       └── xiaohongshu_cookies.json  Login credentials storage file
+├── src/                    #源代码目录
+│   └── core/               核心功能模块
+│       ├── write_xiaohongshu.py     小红书自动化操作模块
+│       └── xiaohongshu_cookies.json  登录凭证存储文件
+│   └── cron/               定时任务
+│       ├── cron_base.py     定时
+│   └── logger/              日志模块
+│       ├── logger.py      日志
+│   └── config/             配置
 ├── static/                 Image resource directory
 ├── test/                    Test directory
 ├── build/                  Build output directory
