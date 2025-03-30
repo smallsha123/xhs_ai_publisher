@@ -208,11 +208,3 @@ class XiaohongshuPoster:
     def close(self):
         """关闭浏览器"""
         self.driver.quit()
-
-# if __name__ == "__main__":
-#     poster = XiaohongshuPoster()
-#     poster.login("18883179204")
-#     print("登录成功")
-#     print("开始发布文章")
-#     poster.post_article("测试标题", "测试内容", [r"C:\Users\lenovo\Pictures\d52ab0d9f1cdf96bad2aaeef2e648e1.jpg"])
-#     poster.close()
