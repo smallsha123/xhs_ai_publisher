@@ -36,26 +36,25 @@ class XiaohongshuPoster:
                 executable_dir = os.path.dirname(sys.executable)
                 print(f"executable_dir: {executable_dir}")
                 logging.debug(f"executable_dir: {executable_dir}")
-
-                if sys.platform == 'darwin':  # macOS系统
-                    if 'XhsAi' in executable_dir:
-                        # 如果在 DMG 中运行
-                        browser_path = os.path.join(
-                            executable_dir, "ms-playwright")
+                
+                # 添加这段代码来处理 PyInstaller 临时目录
+                if hasattr(sys, '_MEIPASS'):
+                    base_path = sys._MEIPASS
+                    print(f"PyInstaller临时目录: {base_path}")
+                    logging.debug(f"PyInstaller临时目录: {base_path}")
+                    
+                    if sys.platform == 'darwin':  # macOS系统
+                        browser_path = os.path.join(base_path, "ms-playwright")
+                        print(f"浏览器路径: {browser_path}")
+                        logging.debug(f"浏览器路径: {browser_path}")
+                        chromium_path = os.path.join(
+                            browser_path, "chromium-1161/chrome-mac/Chromium.app/Contents/MacOS/Chromium")
                     else:
-                        # 如果已经安装到应用程序文件夹
-                        browser_path = os.path.join(
-                            executable_dir, "Contents", "MacOS", "ms-playwright")
-                    print(f"浏览器路径: {browser_path}")
-                    logging.debug(f"浏览器路径: {browser_path}")
-                    chromium_path = os.path.join(
-                        browser_path, "chromium-1161/chrome-mac/Chromium.app/Contents/MacOS/Chromium")
-                else:
-                    # Windows系统
-                    browser_path = os.path.join(executable_dir, "ms-playwright")
-                    print(f"浏览器路径: {browser_path}")
-                    chromium_path = os.path.join(
-                        browser_path, "chromium-1161", "chrome-win", "chrome.exe")
+                        # Windows系统
+                        browser_path = os.path.join(base_path, "ms-playwright")
+                        print(f"浏览器路径: {browser_path}")
+                        chromium_path = os.path.join(
+                            browser_path, "chromium-1161", "chrome-win", "chrome.exe")
 
             print(f"Chromium 路径: {chromium_path}")
             logging.debug(f"Chromium 路径: {chromium_path}")
