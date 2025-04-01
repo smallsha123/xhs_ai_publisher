@@ -10,6 +10,17 @@ logging.basicConfig(filename=log_path, level=logging.DEBUG)
 
 class XiaohongshuPoster:
     def __init__(self):
+        self.playwright = None
+        self.browser = None
+        self.context = None
+        self.page = None
+        self.initialize()
+
+    def initialize(self):
+        """初始化浏览器"""
+        if self.playwright is not None:
+            return
+            
         try:
             print("开始初始化Playwright...")
             self.playwright = sync_playwright().start()
@@ -87,6 +98,7 @@ class XiaohongshuPoster:
         except Exception as e:
             print(f"初始化过程中出现错误: {str(e)}")
             logging.debug(f"初始化过程中出现错误: {str(e)}")
+            self.close()  # 确保资源被正确释放
             raise
 
     def _load_token(self):
@@ -130,6 +142,7 @@ class XiaohongshuPoster:
 
     def login(self, phone, country_code="+86"):
         """登录小红书"""
+        self.ensure_browser()  # 确保浏览器已初始化
         # 如果token有效则直接返回
         if self.token:
             return
@@ -191,6 +204,7 @@ class XiaohongshuPoster:
             content: 文章内容
             images: 图片路径列表
         """
+        self.ensure_browser()  # 确保浏览器已初始化
         time.sleep(3)
         print("点击发布按钮")
         # 点击发布按钮
@@ -225,6 +239,20 @@ class XiaohongshuPoster:
 
     def close(self):
         """关闭浏览器"""
-        self.context.close()
-        self.browser.close()
-        self.playwright.stop()
+        try:
+            if self.context:
+                self.context.close()
+            if self.browser:
+                self.browser.close()
+            if self.playwright:
+                self.playwright.stop()
+        finally:
+            self.playwright = None
+            self.browser = None
+            self.context = None
+            self.page = None
+
+    def ensure_browser(self):
+        """确保浏览器已初始化"""
+        if not self.playwright:
+            self.initialize()
