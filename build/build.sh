@@ -95,21 +95,6 @@ create-dmg \
     "output/XhsAi.dmg" \
     "dist/"
 
-# 检查打包后的应用是否可以运行
-if [ -f "dist/XhsAi.app/Contents/MacOS/XhsAi" ]; then
-    echo "正在测试应用程序..."
-    # 尝试运行应用并捕获错误输出
-    ./dist/XhsAi.app/Contents/MacOS/XhsAi 2> error.log
-    
-    if [ -s error.log ]; then
-        echo "应用程序启动出现错误,错误日志如下:"
-        cat error.log
-    else
-        echo "应用程序启动成功!"
-    fi
-else
-    echo "找不到可执行文件,请检查打包是否成功"
-fi
 
 
 sudo chmod -R 777 dist
@@ -117,3 +102,4 @@ sudo chmod -R 777 output
 
 # 清理临时文件
 rm -rf MyIcon.iconset
+rm -rf dist

@@ -45,7 +45,6 @@ class XiaohongshuPoster:
             if getattr(sys, 'frozen', False):
                 # 如果是打包后的可执行文件
                 executable_dir = os.path.dirname(sys.executable)
-                print(f"executable_dir: {executable_dir}")
                 logging.debug(f"executable_dir: {executable_dir}")
                 if sys.platform == 'darwin':  # macOS系统
                     if 'XhsAi' in executable_dir:
@@ -56,7 +55,6 @@ class XiaohongshuPoster:
                         # 如果已经安装到应用程序文件夹
                         browser_path = os.path.join(
                             executable_dir, "Contents", "MacOS", "ms-playwright")
-                    print(f"浏览器路径: {browser_path}")
                     logging.debug(f"浏览器路径: {browser_path}")
                     chromium_path = os.path.join(
                         browser_path, "chromium-1161/chrome-mac/Chromium.app/Contents/MacOS/Chromium")
@@ -69,9 +67,6 @@ class XiaohongshuPoster:
                     chromium_path = os.path.join(
                         browser_path, "chrome-win", "chrome.exe")
                     logging.debug(f"Chromium 路径: {chromium_path}")
-
-
-            print(f"Chromium 路径: {chromium_path}")
             logging.debug(f"Chromium 路径: {chromium_path}")
             if chromium_path:
                 # 确保浏览器文件存在且有执行权限
@@ -164,7 +159,8 @@ class XiaohongshuPoster:
             # 清理无效的cookies
             self.context.clear_cookies()
             print("无效的cookies，已清理")
-
+            
+            
         # 如果cookies登录失败，则进行手动登录
         self.page.goto("https://creator.xiaohongshu.com/login")
         time.sleep(1)
