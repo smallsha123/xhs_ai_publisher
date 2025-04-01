@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_submodules
 
-hiddenimports = ['imaplib']
+hiddenimports = ['playwright', 'playwright.sync_api', 'playwright._impl._driver', 'playwright.async_api']
 hiddenimports += collect_submodules('src')
 
 
@@ -9,7 +9,7 @@ a = Analysis(
     ['../main.py'],
     pathex=['..'],
     binaries=[],
-    datas=[('/Users/smallshaxiaoche/miniconda3/envs/xhs_publisher/lib/python3.12/site-packages/certifi/cacert.pem', 'certifi')],
+    datas=[('/Users/smallshaxiaoche/miniconda3/envs/xhs_publisher/lib/python3.12/site-packages/certifi/cacert.pem', 'certifi'), ('../src', 'src')],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

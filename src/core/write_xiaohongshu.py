@@ -63,8 +63,6 @@ class XiaohongshuPoster:
                     raise Exception(f"浏览器文件不存在: {chromium_path}")
 
             # 获取默认的 Chromium 可执行文件路径
-            default_executable = self.playwright.chromium.executable_path
-            print(f"默认 Chromium 可执行文件路径: {default_executable}")
             self.browser = self.playwright.chromium.launch(**launch_args)
             self.context = self.browser.new_context()
             self.page = self.context.new_page()

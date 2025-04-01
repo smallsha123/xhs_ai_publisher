@@ -76,7 +76,7 @@ pyinstaller ^
     --hidden-import playwright.sync_api ^
     --hidden-import playwright._impl._driver ^
     --hidden-import playwright.async_api ^
-    --add-data "%LOCALAPPDATA%\ms-playwright;ms-playwright" ^
+    --add-data "%LOCALAPPDATA%\ms-playwright\chromium-*;ms-playwright" ^
     ../main.py
 
 :: 打包完成后清理临时文件

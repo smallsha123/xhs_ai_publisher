@@ -15,8 +15,8 @@ class Logger:
         self.log_file = os.path.join(app_log_dir, 'xhs.log')
 
         # 创建日志目录
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
+        if not os.path.exists(app_log_dir):
+            os.makedirs(app_log_dir)
 
         # 创建logger实例
         self.logger = logging.getLogger('app')

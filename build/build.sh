@@ -112,5 +112,8 @@ else
 fi
 
 
+sudo chmod -R 777 dist
+sudo chmod -R 777 output
+
 # 清理临时文件
 rm -rf MyIcon.iconset
