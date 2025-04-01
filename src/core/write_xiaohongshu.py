@@ -4,7 +4,9 @@ import time
 import json
 import os
 import sys
-
+import logging
+log_path = os.path.expanduser('~/Desktop/xhsai_error.log')
+logging.basicConfig(filename=log_path, level=logging.DEBUG)
 
 class XiaohongshuPoster:
     def __init__(self):
@@ -33,6 +35,7 @@ class XiaohongshuPoster:
                 # 如果是打包后的可执行文件
                 executable_dir = os.path.dirname(sys.executable)
                 print(f"executable_dir: {executable_dir}")
+                logging.debug(f"executable_dir: {executable_dir}")
 
                 if sys.platform == 'darwin':  # macOS系统
                     if 'XhsAi' in executable_dir:
@@ -44,6 +47,7 @@ class XiaohongshuPoster:
                         browser_path = os.path.join(
                             executable_dir, "Contents", "MacOS", "ms-playwright")
                     print(f"浏览器路径: {browser_path}")
+                    logging.debug(f"浏览器路径: {browser_path}")
                     chromium_path = os.path.join(
                         browser_path, "chromium-1161/chrome-mac/Chromium.app/Contents/MacOS/Chromium")
                 else:
@@ -54,6 +58,7 @@ class XiaohongshuPoster:
                         browser_path, "chromium-1161", "chrome-win", "chrome.exe")
 
             print(f"Chromium 路径: {chromium_path}")
+            logging.debug(f"Chromium 路径: {chromium_path}")
             if chromium_path:
                 # 确保浏览器文件存在且有执行权限
                 if os.path.exists(chromium_path):
@@ -67,6 +72,7 @@ class XiaohongshuPoster:
             self.context = self.browser.new_context()
             self.page = self.context.new_page()
             print("浏览器启动成功！")
+            logging.debug("浏览器启动成功！")
             # 获取当前执行文件所在目录
             current_dir = os.path.dirname(os.path.abspath(__file__))
             self.token_file = os.path.join(current_dir, "xiaohongshu_token.json")
@@ -77,6 +83,7 @@ class XiaohongshuPoster:
 
         except Exception as e:
             print(f"初始化过程中出现错误: {str(e)}")
+            logging.debug(f"初始化过程中出现错误: {str(e)}")
             raise
 
     def _load_token(self):
