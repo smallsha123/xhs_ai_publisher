@@ -52,9 +52,9 @@ class XiaohongshuPoster:
                 else:
                     # Windows系统
                     executable_dir = sys._MEIPASS
-                    executable_dir(f"临时解压目录: {executable_dir}")
+                    print(f"临时解压目录: {executable_dir}")
                     browser_path = os.path.join(executable_dir, "ms-playwright")
-                    executable_dir(f"浏览器路径: {browser_path}")
+                    print(f"浏览器路径: {browser_path}")
                     chromium_path = os.path.join(
                         browser_path, "chrome-win", "chrome.exe")
                     logging.debug(f"Chromium 路径: {chromium_path}")
