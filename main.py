@@ -1,3 +1,4 @@
+import logging
 import sys
 import signal
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -18,6 +19,13 @@ from PyQt6.QtCore import QEvent
 from src.logger.logger import Logger
 
 from src.config.constants import VERSION
+
+
+
+# 设置日志文件路径
+log_path = os.path.expanduser('~/Desktop/xhsai_error.log')
+logging.basicConfig(filename=log_path, level=logging.DEBUG)
+
 
 class LoadingWindow(QWidget):
     def __init__(self, parent=None):
@@ -1160,21 +1168,25 @@ class XiaohongshuUI(QMainWindow):
 
 
 if __name__ == "__main__":
-    # 设置信号处理
-    def signal_handler(signum, frame):
-        print("\n正在退出程序...")
-        QApplication.quit()
+    try:
+        # 设置信号处理
+        def signal_handler(signum, frame):
+            print("\n正在退出程序...")
+            QApplication.quit()
 
-    # 注册信号处理器
-    signal.signal(signal.SIGINT, signal_handler)
+        # 注册信号处理器
+        signal.signal(signal.SIGINT, signal_handler)
 
-    app = QApplication(sys.argv)
+        app = QApplication(sys.argv)
 
-    # 允许 CTRL+C 中断
-    timer = QTimer()
-    timer.timeout.connect(lambda: None)
-    timer.start(100)
+        # 允许 CTRL+C 中断
+        timer = QTimer()
+        timer.timeout.connect(lambda: None)
+        timer.start(100)
 
-    window = XiaohongshuUI()
-    window.show()
-    sys.exit(app.exec())
+        window = XiaohongshuUI()
+        window.show()
+        sys.exit(app.exec())
+    except Exception as e:
+        logging.exception("程序运行出错：")
+        raise    

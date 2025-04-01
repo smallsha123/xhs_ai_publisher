@@ -54,14 +54,25 @@ pyinstaller  \
     --name "XhsAi" \
     --icon MyIcon.icns \
     --add-data "${CERT_PATH}:certifi" \
+    --add-data "../src:src" \
     --paths ".." \
     --collect-submodules src \
-    --hidden-import imaplib \
     --hidden-import playwright \
     --hidden-import playwright.sync_api \
+    --hidden-import playwright._impl._driver \
     --hidden-import playwright.async_api \
-    --add-data "$HOME/Library/Caches/ms-playwright:ms-playwright" \
     ../main.py
+
+
+# 手动复制 Playwright 浏览器依赖
+mkdir -p dist/XhsAi.app/Contents/MacOS/ms-playwright
+cp -r $HOME/Library/Caches/ms-playwright/* dist/XhsAi.app/Contents/MacOS/ms-playwright/
+
+# 设置浏览器文件权限
+chmod -R 777 dist/XhsAi.app/Contents/MacOS/ms-playwright
+
+# 添加应用程序本身的执行权限
+chmod +x dist/XhsAi.app/Contents/MacOS/XhsAi
 
 # 打包完成后清理临时文件
 rm -rf temp_build
@@ -80,10 +91,26 @@ create-dmg \
     --icon "XhsAi" 120 40 \
     --hide-extension "XhsAi" \
     --app-drop-link 360 40 \
-    --no-internet-enable \
     --format UDBZ \
     "output/XhsAi.dmg" \
     "dist/"
+
+# 检查打包后的应用是否可以运行
+if [ -f "dist/XhsAi.app/Contents/MacOS/XhsAi" ]; then
+    echo "正在测试应用程序..."
+    # 尝试运行应用并捕获错误输出
+    ./dist/XhsAi.app/Contents/MacOS/XhsAi 2> error.log
+    
+    if [ -s error.log ]; then
+        echo "应用程序启动出现错误,错误日志如下:"
+        cat error.log
+    else
+        echo "应用程序启动成功!"
+    fi
+else
+    echo "找不到可执行文件,请检查打包是否成功"
+fi
+
 
 # 清理临时文件
 rm -rf MyIcon.iconset
