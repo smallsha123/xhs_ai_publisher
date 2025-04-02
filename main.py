@@ -501,6 +501,64 @@ class ImageProcessorThread(QThread):
             return None, None
 
 
+class LoginThread(QThread):
+    finished = pyqtSignal(bool)
+    error = pyqtSignal(str)
+    status = pyqtSignal(str)
+    poster_ready = pyqtSignal(object)  # 添加新的信号用于传递poster对象
+
+    def __init__(self, phone):
+        super().__init__()
+        self.phone = phone
+
+    def run(self):
+        try:
+            self.status.emit("正在登录...")
+            poster = XiaohongshuPoster()
+            poster.login(self.phone)
+            self.status.emit("登录成功")
+            self.poster_ready.emit(poster)  # 发送poster对象
+            self.finished.emit(True)
+        except Exception as e:
+            self.error.emit(str(e))
+            # 登录失败时才关闭浏览器
+            if hasattr(self, 'poster'):
+                self.poster.close(force=True)
+
+    def handle_login_result(self):
+        TipWindow(self, "✅ 登录成功").show()
+
+    def login(self):
+        try:
+            phone = self.phone_input.text()
+            country_code = self.country_combo.currentText().split(
+                '(')[1].replace(')', '')
+
+            if not phone:
+                TipWindow(self, "❌ 请输入手机号").show()
+                return
+
+            # 获取登录按钮并更新状态
+            login_btn = self.findChild(QPushButton, "login_btn")
+            if login_btn:
+                login_btn.setText("⏳ 登录中...")
+                login_btn.setEnabled(False)
+
+            # 创建并启动登录线程
+            self.login_thread = LoginThread(phone)
+            self.login_thread.finished.connect(self.handle_login_result)
+            self.login_thread.error.connect(self.handle_login_error)
+            self.login_thread.poster_ready.connect(self.handle_poster_ready)  # 连接新的信号
+            self.login_thread.start()
+
+        except Exception as e:
+            TipWindow(self, f"❌ 登录失败: {str(e)}").show()
+
+    def handle_poster_ready(self, poster):
+        """处理登录成功后的poster对象"""
+        self.poster = poster
+
+
 class XiaohongshuUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -762,10 +820,12 @@ class XiaohongshuUI(QMainWindow):
         login_layout.addWidget(QLabel("📱 手机号:"))
         self.phone_input = QLineEdit()
         self.phone_input.setFixedWidth(160)  # 减小宽度
+        self.phone_input.setText("15239851762")  # 设置默认值
         login_layout.addWidget(self.phone_input)
 
         # 登录按钮
         login_btn = QPushButton("🚀 登录")
+        login_btn.setObjectName("login_btn")  # 添加对象名称
         login_btn.setFixedWidth(80)  # 减小宽度
         login_btn.clicked.connect(self.login)
         login_layout.addWidget(login_btn)
@@ -901,6 +961,7 @@ class XiaohongshuUI(QMainWindow):
 
         self.input_text = QTextEdit()
         self.input_text.setMinimumHeight(120)  # 减小高度
+        self.input_text.setPlainText("中医的好处")  # 设置默认值
         input_layout.addWidget(self.input_text)
 
         # 添加按钮区域到内容输入框下面
@@ -1037,11 +1098,37 @@ class XiaohongshuUI(QMainWindow):
                 TipWindow(self, "❌ 请输入手机号").show()
                 return
 
-            self.poster = XiaohongshuPoster()
-            self.poster.login(phone, country_code=country_code)
-            TipWindow(self, "✅ 登录成功").show()
+            # 获取登录按钮并更新状态
+            login_btn = self.findChild(QPushButton, "login_btn")
+            if login_btn:
+                login_btn.setText("⏳ 登录中...")
+                login_btn.setEnabled(False)
+
+            # 创建并启动登录线程
+            self.login_thread = LoginThread(phone)
+            self.login_thread.finished.connect(self.handle_login_result)
+            self.login_thread.error.connect(self.handle_login_error)
+            self.login_thread.poster_ready.connect(self.handle_poster_ready)  # 连接新的信号
+            self.login_thread.start()
+
         except Exception as e:
             TipWindow(self, f"❌ 登录失败: {str(e)}").show()
+
+    def handle_login_error(self, error_msg):
+        # 恢复登录按钮状态
+        login_btn = self.findChild(QPushButton, "login_btn")
+        if login_btn:
+            login_btn.setText("🚀 登录")
+            login_btn.setEnabled(True)
+        TipWindow(self, f"❌ 登录失败: {error_msg}").show()
+
+    def handle_login_result(self):
+        # 恢复登录按钮状态
+        login_btn = self.findChild(QPushButton, "login_btn")
+        if login_btn:
+            login_btn.setText("🚀 登录")
+            login_btn.setEnabled(True)
+        TipWindow(self, "✅ 登录成功").show()
 
     def generate_content(self):
         try:
@@ -1222,6 +1309,10 @@ class XiaohongshuUI(QMainWindow):
             self.config.update_author_config(title_config['author'])
         except Exception as e:
             self.logger.error(f"更新作者配置失败: {str(e)}")
+
+    def handle_poster_ready(self, poster):
+        """处理登录成功后的poster对象"""
+        self.poster = poster
 
 
 if __name__ == "__main__":

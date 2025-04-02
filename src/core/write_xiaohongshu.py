@@ -80,13 +80,67 @@ class XiaohongshuPoster:
             self.browser = self.playwright.chromium.launch(**launch_args)
             self.context = self.browser.new_context()
             self.page = self.context.new_page()
+            
+            # 注入stealth.min.js
+            stealth_js = """
+            (function(){
+                const originalQuery = window.navigator.permissions.query;
+                window.navigator.permissions.query = (parameters) => (
+                    parameters.name === 'notifications' ?
+                        Promise.resolve({ state: Notification.permission }) :
+                        originalQuery(parameters)
+                );
+                
+                const getParameter = WebGLRenderingContext.prototype.getParameter;
+                WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                    if (parameter === 37445) {
+                        return 'Intel Open Source Technology Center';
+                    }
+                    if (parameter === 37446) {
+                        return 'Mesa DRI Intel(R) HD Graphics (SKL GT2)';
+                    }
+                    return getParameter.apply(this, arguments);
+                };
+                
+                const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+                Element.prototype.getBoundingClientRect = function() {
+                    const rect = originalGetBoundingClientRect.apply(this, arguments);
+                    rect.width = Math.round(rect.width);
+                    rect.height = Math.round(rect.height);
+                    return rect;
+                };
+                
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+                
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['zh-CN', 'zh']
+                });
+                
+                window.chrome = {
+                    runtime: {}
+                };
+            })();
+            """
+            self.page.add_init_script(stealth_js)
+            
             print("浏览器启动成功！")
             logging.debug("浏览器启动成功！")
-            # 获取当前执行文件所在目录
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            self.token_file = os.path.join(current_dir, "xiaohongshu_token.json")
-            self.cookies_file = os.path.join(
-                current_dir, "xiaohongshu_cookies.json")
+            
+            # 获取用户主目录
+            home_dir = os.path.expanduser('~')
+            app_dir = os.path.join(home_dir, '.xhs_system')
+            if not os.path.exists(app_dir):
+                os.makedirs(app_dir)
+
+            # 设置token和cookies文件路径
+            self.token_file = os.path.join(app_dir, "xiaohongshu_token.json")
+            self.cookies_file = os.path.join(app_dir, "xiaohongshu_cookies.json")
             self.token = self._load_token()
             self._load_cookies()
 
@@ -125,15 +179,24 @@ class XiaohongshuPoster:
             try:
                 with open(self.cookies_file, 'r') as f:
                     cookies = json.load(f)
+                    # 确保cookies包含必要的字段
+                    for cookie in cookies:
+                        if 'domain' not in cookie:
+                            cookie['domain'] = '.xiaohongshu.com'
+                        if 'path' not in cookie:
+                            cookie['path'] = '/'
                     self.context.add_cookies(cookies)
-            except:
-                pass
+            except Exception as e:
+                logging.debug(f"加载cookies失败: {str(e)}")
 
     def _save_cookies(self):
         """保存cookies到文件"""
-        cookies = self.context.cookies()
-        with open(self.cookies_file, 'w') as f:
-            json.dump(cookies, f)
+        try:
+            cookies = self.context.cookies()
+            with open(self.cookies_file, 'w') as f:
+                json.dump(cookies, f)
+        except Exception as e:
+            logging.debug(f"保存cookies失败: {str(e)}")
 
     def login(self, phone, country_code="+86"):
         """登录小红书"""
@@ -143,23 +206,25 @@ class XiaohongshuPoster:
             return
 
         # 尝试加载cookies进行登录
-        self.page.goto("https://creator.xiaohongshu.com/login")
+        self.page.goto("https://creator.xiaohongshu.com/login", wait_until="networkidle")
+        # 先清除所有cookies
+        self.context.clear_cookies()
+        
+        # 重新加载cookies
         self._load_cookies()
-        self.page.reload()
-        time.sleep(3)
+        # 刷新页面并等待加载完成
+        self.page.reload(wait_until="networkidle")
 
         # 检查是否已经登录
-        if "login" not in self.page.url:
+        current_url = self.page.url
+        if "login" not in current_url:
             print("使用cookies登录成功")
             self.token = self._load_token()
             self._save_cookies()
-            time.sleep(2)
             return
         else:
             # 清理无效的cookies
             self.context.clear_cookies()
-            print("无效的cookies，已清理")
-            
             
         # 如果cookies登录失败，则进行手动登录
         self.page.goto("https://creator.xiaohongshu.com/login")
@@ -233,20 +298,25 @@ class XiaohongshuPoster:
         time.sleep(600)
         self.page.click(".el-button.publishBtn")
 
-    def close(self):
-        """关闭浏览器"""
+    def close(self, force=False):
+        """关闭浏览器
+        Args:
+            force: 是否强制关闭浏览器，默认为False
+        """
         try:
-            if self.context:
-                self.context.close()
-            if self.browser:
-                self.browser.close()
-            if self.playwright:
-                self.playwright.stop()
-        finally:
-            self.playwright = None
-            self.browser = None
-            self.context = None
-            self.page = None
+            if force:
+                if self.context:
+                    self.context.close()
+                if self.browser:
+                    self.browser.close()
+                if self.playwright:
+                    self.playwright.stop()
+                self.playwright = None
+                self.browser = None
+                self.context = None
+                self.page = None
+        except Exception as e:
+            logging.debug(f"关闭浏览器时出错: {str(e)}")
 
     def ensure_browser(self):
         """确保浏览器已初始化"""
