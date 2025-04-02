@@ -4,15 +4,13 @@ import signal
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QFrame,
                              QStackedWidget)
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
-from PyQt6.QtGui import QPixmap, QImage, QColor, QIcon
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QPixmap, QColor, QIcon
 import os
+from src.core.content_processor import ContentGeneratorThread
+from src.core.img_processor import ImageProcessorThread
+from src.core.browser import BrowserThread
 from src.config.config import Config
-from src.core.write_xiaohongshu import XiaohongshuPoster
-import json
-import requests
-from PIL import Image
-import io
 from src.logger.logger import Logger
 
 from src.core.alert import TipWindow
@@ -23,214 +21,6 @@ from src.config.constants import VERSION
 # 设置日志文件路径
 log_path = os.path.expanduser('~/Desktop/xhsai_error.log')
 logging.basicConfig(filename=log_path, level=logging.DEBUG)
-
-
-class ContentGeneratorThread(QThread):
-    finished = pyqtSignal(dict)
-    error = pyqtSignal(str)
-
-    def __init__(self, input_text, header_title, author, generate_btn):
-        super().__init__()
-        self.input_text = input_text
-        self.header_title = header_title
-        self.author = author
-        self.generate_btn = generate_btn
-
-    def run(self):
-        try:
-            # 更新按钮状态
-            self.generate_btn.setText("⏳ 生成中...")
-            self.generate_btn.setEnabled(False)
-
-            workflow_id = "7431484143153070132"
-            parameters = {
-                "BOT_USER_INPUT": self.input_text,
-                "HEADER_TITLE": self.header_title,
-                "AUTHOR": self.author
-            }
-
-            response = requests.post(
-                "http://8.137.103.115:8081/workflow/run",
-                json={
-                    "workflow_id": workflow_id,
-                    "parameters": parameters
-                }
-            )
-
-            if response.status_code != 200:
-                raise Exception("API调用失败")
-
-            res = response.json()
-            output_data = json.loads(res['data'])
-            title = json.loads(output_data['output'])['title']
-
-            result = {
-                'title': title,
-                'content': output_data['content'],
-                'cover_image': json.loads(res['data'])['image'],
-                'content_images': json.loads(res['data'])['image_content'],
-                'input_text': self.input_text
-            }
-
-            self.finished.emit(result)
-        except Exception as e:
-            self.error.emit(str(e))
-        finally:
-            # 恢复按钮状态
-            self.generate_btn.setText("✨ 生成内容")
-            self.generate_btn.setEnabled(True)
-
-
-class ImageProcessorThread(QThread):
-    finished = pyqtSignal(list, list)  # 发送图片路径列表和图片信息列表
-    error = pyqtSignal(str)
-
-    def __init__(self, cover_image_url, content_image_urls):
-        super().__init__()
-        self.cover_image_url = cover_image_url
-        self.content_image_urls = content_image_urls
-        # 获取用户主目录
-        img_dir = os.path.join(os.path.expanduser('~'), '.xhs_system')
-        if not os.path.exists(img_dir):
-            os.makedirs(img_dir)
-
-        # 配置文件路径
-        self.img_dir = os.path.join(img_dir, 'imgs')
-        
-
-    def run(self):
-        try:
-            images = []
-            image_list = []
-            
-            # 并发处理所有图片
-            from concurrent.futures import ThreadPoolExecutor
-            
-            def process_image_with_title(args):
-                url, title = args
-                return self.process_image(url, title)
-                
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                # 创建有序的future列表
-                futures = []
-                
-                # 添加封面图任务
-                if self.cover_image_url:
-                    future = executor.submit(process_image_with_title, 
-                                          (self.cover_image_url, "封面图"))
-                    futures.append((-1, future)) # 用-1确保封面图排在最前
-                
-                # 添加内容图任务    
-                for i, url in enumerate(self.content_image_urls):
-                    future = executor.submit(process_image_with_title, 
-                                          (url, f"内容图{i+1}"))
-                    futures.append((i, future))
-                
-                # 按照原始顺序处理结果
-                for i, future in sorted(futures, key=lambda x: x[0]):
-                    img_path, pixmap_info = future.result()
-                    if img_path and pixmap_info:
-                        images.append(img_path)
-                        image_list.append(pixmap_info)
-
-            self.finished.emit(images, image_list)
-        except Exception as e:
-            self.error.emit(str(e))
-
-    def process_image(self, url, title):
-        try:
-            response = requests.get(url)
-            if response.status_code == 200:
-                # 保存图片
-                img_path = os.path.join(self.img_dir, f'{title}.jpg')
-                os.makedirs(os.path.dirname(img_path), exist_ok=True)
-
-                # 保存原始图片
-                with open(img_path, 'wb') as f:
-                    f.write(response.content)
-
-                # 处理图片预览
-                image = Image.open(io.BytesIO(response.content))
-
-                # 计算缩放比例，保持宽高比
-                width, height = image.size
-                max_size = 360  # 调整预览图片的最大尺寸
-                scale = min(max_size/width, max_size/height)
-                new_width = int(width * scale)
-                new_height = int(height * scale)
-
-                # 缩放图片
-                image = image.resize((new_width, new_height), Image.LANCZOS)
-
-                # 创建白色背景
-                background = Image.new('RGB', (max_size, max_size), 'white')
-                # 将图片粘贴到中心位置
-                offset = ((max_size - new_width) // 2,
-                          (max_size - new_height) // 2)
-                background.paste(image, offset)
-
-                # 转换为QPixmap
-                img_bytes = io.BytesIO()
-                background.save(img_bytes, format='PNG')
-                img_data = img_bytes.getvalue()
-
-                qimage = QImage.fromData(img_data)
-                pixmap = QPixmap.fromImage(qimage)
-
-                if pixmap.isNull():
-                    raise Exception("无法创建有效的图片预览")
-
-                return img_path, {'pixmap': pixmap, 'title': title}
-            else:
-                raise Exception(f"下载图片失败: HTTP {response.status_code}")
-
-        except Exception as e:
-            print(f"处理图片失败: {str(e)}")
-            return None, None
-
-
-class BrowserThread(QThread):
-    # 添加信号
-    login_status_changed = pyqtSignal(str, bool)  # 用于更新登录按钮状态
-    preview_status_changed = pyqtSignal(str, bool)  # 用于更新预览按钮状态
-    login_success = pyqtSignal(object)  # 用于传递poster对象
-    login_error = pyqtSignal(str)  # 用于传递错误信息
-    preview_success = pyqtSignal()  # 用于通知预览成功
-    preview_error = pyqtSignal(str)  # 用于传递预览错误信息
-
-    def __init__(self):
-        super().__init__()
-        self.poster = None
-        self.action_queue = []
-        self.is_running = True
-
-    def run(self):
-        while self.is_running:
-            if self.action_queue:
-                action = self.action_queue.pop(0)
-                try:
-                    if action['type'] == 'login':
-                        self.poster = XiaohongshuPoster()
-                        self.poster.login(action['phone'])
-                        self.login_success.emit(self.poster)
-                    elif action['type'] == 'preview' and self.poster:
-                        self.poster.post_article(
-                            action['title'],
-                            action['content'],
-                            action['images']
-                        )
-                        self.preview_success.emit()
-                except Exception as e:
-                    if action['type'] == 'login':
-                        self.login_error.emit(str(e))
-                    elif action['type'] == 'preview':
-                        self.preview_error.emit(str(e))
-            self.msleep(100)  # 避免CPU占用过高
-
-    def stop(self):
-        self.is_running = False
-        if self.poster:
-            self.poster.close(force=True)
 
 
 class XiaohongshuUI(QMainWindow):
@@ -251,40 +41,6 @@ class XiaohongshuUI(QMainWindow):
         self.logger = Logger(is_console=app_config)
 
         self.logger.success("小红书发文助手启动")
-
-        # 初始化国家区号
-        self.country_codes = {
-            "中国": "+86",
-            "中国香港": "+852",
-            "中国台湾": "+886",
-            "中国澳门": "+853",
-            "新加坡": "+65",
-            "马来西亚": "+60",
-            "日本": "+81",
-            "韩国": "+82",
-            "美国": "+1",
-            "加拿大": "+1",
-            "英国": "+44",
-            "法国": "+33",
-            "德国": "+49",
-            "意大利": "+39",
-            "西班牙": "+34",
-            "葡萄牙": "+351",
-            "俄罗斯": "+7",
-            "澳大利亚": "+61",
-            "新西兰": "+64",
-            "印度": "+91",
-            "泰国": "+66",
-            "越南": "+84",
-            "菲律宾": "+63",
-            "印度尼西亚": "+62",
-            "阿联酋": "+971",
-            "沙特阿拉伯": "+966",
-            "巴西": "+55",
-            "墨西哥": "+52",
-            "南非": "+27",
-            "埃及": "+20"
-        }
 
         self.setWindowTitle("✨ 小红书发文助手")
         self.setStyleSheet(f"""
@@ -484,40 +240,39 @@ class XiaohongshuUI(QMainWindow):
                 background: transparent;
             }
         """)
-        login_layout = QHBoxLayout(login_frame)
+        login_layout = QVBoxLayout(login_frame)  # 改为垂直布局
         login_layout.setContentsMargins(8, 8, 8, 8)
         login_layout.setSpacing(8)
 
-        # 添加标题标签
-        title_label = QLabel("🔐 登录信息")
-        title_label.setStyleSheet(
-            "font-size: 12pt; font-weight: bold; color: #2c3e50;")
-        login_layout.addWidget(title_label)
-
-        # 国家区号选择
-        login_layout.addWidget(QLabel("🌏 国家区号:"))
-        self.country_combo = QComboBox()
-        self.country_combo.addItems(
-            [f"{country}({code})" for country, code in self.country_codes.items()])
-        self.country_combo.setCurrentText("中国(+86)")
-        self.country_combo.setFixedWidth(160)  # 减小宽度
-        login_layout.addWidget(self.country_combo)
+        # 创建水平布局用于登录控件
+        login_controls = QHBoxLayout()
+        login_controls.setSpacing(8)
 
         # 手机号输入
-        login_layout.addWidget(QLabel("📱 手机号:"))
+        login_controls.addWidget(QLabel("📱 手机号:"))
         self.phone_input = QLineEdit()
         self.phone_input.setFixedWidth(160)  # 减小宽度
         self.phone_input.setText("15239851762")  # 设置默认值
-        login_layout.addWidget(self.phone_input)
+        login_controls.addWidget(self.phone_input)
 
         # 登录按钮
         login_btn = QPushButton("🚀 登录")
         login_btn.setObjectName("login_btn")  # 添加对象名称
         login_btn.setFixedWidth(80)  # 减小宽度
         login_btn.clicked.connect(self.login)
-        login_layout.addWidget(login_btn)
+        login_controls.addWidget(login_btn)
 
-        login_layout.addStretch()
+        # 添加免责声明
+        disclaimer_label = QLabel("⚠️ 仅限于学习,请勿用于其他用途,否则后果自负")
+        disclaimer_label.setStyleSheet("""
+            color: #e74c3c;
+            font-size: 10pt;
+            font-weight: bold;
+        """)
+        login_controls.addWidget(disclaimer_label)
+
+        login_controls.addStretch()
+        login_layout.addLayout(login_controls)
         parent_layout.addWidget(login_frame)
 
     def create_left_section(self, parent_layout):
@@ -834,8 +589,6 @@ class XiaohongshuUI(QMainWindow):
     def login(self):
         try:
             phone = self.phone_input.text()
-            country_code = self.country_combo.currentText().split(
-                '(')[1].replace(')', '')
 
             if not phone:
                 TipWindow(self, "❌ 请输入手机号").show()
@@ -903,7 +656,7 @@ class XiaohongshuUI(QMainWindow):
 
     def update_ui_after_generate(self, title, content, cover_image_url, content_image_urls, input_text):
         try:
-               # 创建并启动图片处理线程
+            # 创建并启动图片处理线程
             self.image_processor = ImageProcessorThread(
                 cover_image_url, content_image_urls)
             self.image_processor.finished.connect(
@@ -911,7 +664,7 @@ class XiaohongshuUI(QMainWindow):
             self.image_processor.error.connect(
                 self.handle_image_processing_error)
             self.image_processor.start()
-            
+
             # 更新标题和内容
             self.title_input.setText(title if title else "")
             self.subtitle_input.setText(content if content else "")
@@ -932,8 +685,6 @@ class XiaohongshuUI(QMainWindow):
             # 显示占位图
             self.image_label.setPixmap(self.placeholder_photo)
             self.image_title.setText("正在加载图片...")
-
-         
 
         except Exception as e:
             print(f"更新UI时出错: {str(e)}")
