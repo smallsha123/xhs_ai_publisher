@@ -869,11 +869,37 @@ class XiaohongshuUI(QMainWindow):
         title_layout = QVBoxLayout(title_frame)
         title_layout.setSpacing(0)
         title_layout.setContentsMargins(12, 12, 12, 12)
-
+        
         # 添加标题标签
         header_label = QLabel("✏️ 标题编辑")
         header_label.setObjectName("section_title")
         title_layout.addWidget(header_label)
+
+        # 眉头标题输入框
+        header_input_layout = QHBoxLayout()
+        header_input_layout.setSpacing(8)
+        header_label = QLabel("🏷️ 眉头标题")
+        header_label.setFixedWidth(100)  # 增加标签宽度
+        header_input_layout.addWidget(header_label)
+        self.header_input = QLineEdit(self.config.get_title_config()['title'])
+        self.header_input.setMinimumWidth(250)  # 增加输入框最小宽度
+        self.header_input.textChanged.connect(self.update_title_config)
+        header_input_layout.addWidget(self.header_input)
+        title_layout.addLayout(header_input_layout)
+
+        # 作者输入框
+        author_input_layout = QHBoxLayout()
+        author_input_layout.setSpacing(8)
+        author_label = QLabel("👤 作者")
+        author_label.setFixedWidth(100)  # 增加标签宽度
+        author_input_layout.addWidget(author_label)
+        self.author_input = QLineEdit(self.config.get_title_config()['author'])
+        self.author_input.setMinimumWidth(250)  # 增加输入框最小宽度
+        self.author_input.textChanged.connect(self.update_author_config)
+        author_input_layout.addWidget(self.author_input)
+        title_layout.addLayout(author_input_layout)
+        
+        
 
         # 标题输入框
         title_input_layout = QHBoxLayout()
@@ -891,35 +917,23 @@ class XiaohongshuUI(QMainWindow):
         content_label = QLabel("📄 内容")
         content_label.setFixedWidth(100)  # 增加标签宽度
         content_input_layout.addWidget(content_label)
-        self.subtitle_input = QLineEdit()
+        self.subtitle_input = QTextEdit()  # 改为QTextEdit
+        self.subtitle_input.setMinimumHeight(120)  # 设置最小高度
+        self.subtitle_input.setStyleSheet("""
+            QTextEdit {
+                font-size: 11pt;
+                line-height: 1.5;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                background-color: white;
+            }
+        """)
         content_input_layout.addWidget(self.subtitle_input)
         title_layout.addLayout(content_input_layout)
 
-        # 眉头标题输入框
-        header_input_layout = QHBoxLayout()
-        header_input_layout.setSpacing(8)
-        header_label = QLabel("🏷️ 眉头标题")
-        header_label.setFixedWidth(100)  # 增加标签宽度
-        header_input_layout.addWidget(header_label)
-        self.header_input = QLineEdit(self.config.get_title_config()['title'])
-        self.header_input.setMinimumWidth(250)  # 增加输入框最小宽度
-        self.header_input.textChanged.connect(
-            self.update_title_config)  # 添加文本变化事件处理
-        header_input_layout.addWidget(self.header_input)
-        title_layout.addLayout(header_input_layout)
-
-        # 作者输入框
-        author_input_layout = QHBoxLayout()
-        author_input_layout.setSpacing(8)
-        author_label = QLabel("👤 作者")
-        author_label.setFixedWidth(100)  # 增加标签宽度
-        author_input_layout.addWidget(author_label)
-        self.author_input = QLineEdit(self.config.get_title_config()['author'])
-        self.author_input.setMinimumWidth(250)  # 增加输入框最小宽度
-        self.author_input.textChanged.connect(
-            self.update_author_config)  # 添加文本变化事件处理
-        author_input_layout.addWidget(self.author_input)
-        title_layout.addLayout(author_input_layout)
+        # 添加垂直间距
+        title_layout.addSpacing(25)  # 添加间距
 
         # 内容输入区域
         input_frame = QFrame()
