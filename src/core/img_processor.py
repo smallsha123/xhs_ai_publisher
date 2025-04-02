@@ -1,4 +1,5 @@
 import io
+import time
 from PyQt6.QtCore import QThread, pyqtSignal
 
 import os
@@ -66,52 +67,59 @@ class ImageProcessorThread(QThread):
             self.error.emit(str(e))
 
     def process_image(self, url, title):
-        try:
-            response = requests.get(url)
-            if response.status_code == 200:
-                # 保存图片
-                img_path = os.path.join(self.img_dir, f'{title}.jpg')
-                os.makedirs(os.path.dirname(img_path), exist_ok=True)
+        retries = 3
+        while retries > 0:
+            try:
+                response = requests.get(url)
+                if response.status_code == 200:
+                    # 保存图片
+                    img_path = os.path.join(self.img_dir, f'{title}.jpg')
+                    os.makedirs(os.path.dirname(img_path), exist_ok=True)
 
-                # 保存原始图片
-                with open(img_path, 'wb') as f:
-                    f.write(response.content)
+                    # 保存原始图片
+                    with open(img_path, 'wb') as f:
+                        f.write(response.content)
 
-                # 处理图片预览
-                image = Image.open(io.BytesIO(response.content))
+                    # 处理图片预览
+                    image = Image.open(io.BytesIO(response.content))
 
-                # 计算缩放比例，保持宽高比
-                width, height = image.size
-                max_size = 360  # 调整预览图片的最大尺寸
-                scale = min(max_size/width, max_size/height)
-                new_width = int(width * scale)
-                new_height = int(height * scale)
+                    # 计算缩放比例，保持宽高比
+                    width, height = image.size
+                    max_size = 360  # 调整预览图片的最大尺寸
+                    scale = min(max_size/width, max_size/height)
+                    new_width = int(width * scale)
+                    new_height = int(height * scale)
 
-                # 缩放图片
-                image = image.resize((new_width, new_height), Image.LANCZOS)
+                    # 缩放图片
+                    image = image.resize((new_width, new_height), Image.LANCZOS)
 
-                # 创建白色背景
-                background = Image.new('RGB', (max_size, max_size), 'white')
-                # 将图片粘贴到中心位置
-                offset = ((max_size - new_width) // 2,
-                          (max_size - new_height) // 2)
-                background.paste(image, offset)
+                    # 创建白色背景
+                    background = Image.new('RGB', (max_size, max_size), 'white')
+                    # 将图片粘贴到中心位置
+                    offset = ((max_size - new_width) // 2,
+                              (max_size - new_height) // 2)
+                    background.paste(image, offset)
 
-                # 转换为QPixmap
-                img_bytes = io.BytesIO()
-                background.save(img_bytes, format='PNG')
-                img_data = img_bytes.getvalue()
+                    # 转换为QPixmap
+                    img_bytes = io.BytesIO()
+                    background.save(img_bytes, format='PNG')
+                    img_data = img_bytes.getvalue()
 
-                qimage = QImage.fromData(img_data)
-                pixmap = QPixmap.fromImage(qimage)
+                    qimage = QImage.fromData(img_data)
+                    pixmap = QPixmap.fromImage(qimage)
 
-                if pixmap.isNull():
-                    raise Exception("无法创建有效的图片预览")
+                    if pixmap.isNull():
+                        raise Exception("无法创建有效的图片预览")
 
-                return img_path, {'pixmap': pixmap, 'title': title}
-            else:
-                raise Exception(f"下载图片失败: HTTP {response.status_code}")
+                    return img_path, {'pixmap': pixmap, 'title': title}
+                else:
+                    raise Exception(f"下载图片失败: HTTP {response.status_code}")
 
-        except Exception as e:
-            print(f"处理图片失败: {str(e)}")
-            return None, None
+            except Exception as e:
+                retries -= 1
+                if retries > 0:
+                    print(f"处理图片失败,还剩{retries}次重试: {str(e)}")
+                    time.sleep(1)  # 重试前等待1秒
+                else:
+                    print(f"处理图片失败,重试次数已用完: {str(e)}")
+                    return None, None

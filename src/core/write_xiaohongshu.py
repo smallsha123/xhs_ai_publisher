@@ -78,7 +78,10 @@ class XiaohongshuPoster:
 
             # 获取默认的 Chromium 可执行文件路径
             self.browser = self.playwright.chromium.launch(**launch_args)
-            self.context = self.browser.new_context()
+            # 创建新的上下文时设置权限
+            self.context = self.browser.new_context(
+                permissions=['geolocation']  # 自动允许位置信息访问
+            )
             self.page = self.context.new_page()
             
             # 注入stealth.min.js
@@ -266,17 +269,16 @@ class XiaohongshuPoster:
             images: 图片路径列表
         """
         self.ensure_browser()  # 确保浏览器已初始化
-        time.sleep(3)
         print("点击发布按钮")
         # 点击发布按钮
         self.page.click(".btn.el-tooltip__trigger.el-tooltip__trigger")
 
         # 切换到上传图文
-        time.sleep(3)
+        time.sleep(1)
         tabs = self.page.query_selector_all(".creator-tab")
         if len(tabs) > 1:
             tabs[1].click()
-        time.sleep(3)
+        time.sleep(1)
 
         # 上传图片
         if images:
@@ -295,8 +297,8 @@ class XiaohongshuPoster:
         self.page.fill(".ql-editor", content)
 
         # 发布
-        time.sleep(600)
-        self.page.click(".el-button.publishBtn")
+        time.sleep(1)
+        # self.page.click(".el-button.publishBtn")
 
     def close(self, force=False):
         """关闭浏览器

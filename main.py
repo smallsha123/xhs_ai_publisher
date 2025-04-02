@@ -235,9 +235,15 @@ class XiaohongshuUI(QMainWindow):
                 background-color: white;
             }
             QLabel {
-                font-size: 11pt;
+                font-size: 12pt;
                 border: none;
                 background: transparent;
+            }
+            QLineEdit {
+                font-size: 12pt;
+            }
+            QPushButton {
+                font-size: 12pt;
             }
         """)
         login_layout = QVBoxLayout(login_frame)  # 改为垂直布局
@@ -251,14 +257,14 @@ class XiaohongshuUI(QMainWindow):
         # 手机号输入
         login_controls.addWidget(QLabel("📱 手机号:"))
         self.phone_input = QLineEdit()
-        self.phone_input.setFixedWidth(160)  # 减小宽度
+        self.phone_input.setFixedWidth(180)  # 增加宽度
         self.phone_input.setText("15239851762")  # 设置默认值
         login_controls.addWidget(self.phone_input)
 
         # 登录按钮
         login_btn = QPushButton("🚀 登录")
         login_btn.setObjectName("login_btn")  # 添加对象名称
-        login_btn.setFixedWidth(80)  # 减小宽度
+        login_btn.setFixedWidth(100)  # 增加宽度
         login_btn.clicked.connect(self.login)
         login_controls.addWidget(login_btn)
 
@@ -266,7 +272,7 @@ class XiaohongshuUI(QMainWindow):
         disclaimer_label = QLabel("⚠️ 仅限于学习,请勿用于其他用途,否则后果自负")
         disclaimer_label.setStyleSheet("""
             color: #e74c3c;
-            font-size: 10pt;
+            font-size: 11pt;
             font-weight: bold;
         """)
         login_controls.addWidget(disclaimer_label)
