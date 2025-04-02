@@ -1348,11 +1348,43 @@ class XiaohongshuUI(QMainWindow):
             self.logger.error(f"更新作者配置失败: {str(e)}")
 
     def closeEvent(self, event):
-        # 关闭浏览器线程
-        if hasattr(self, 'browser_thread'):
-            self.browser_thread.stop()
-            self.browser_thread.wait()
-        super().closeEvent(event)
+        print("关闭应用")
+        try:
+            # 停止所有线程
+            if hasattr(self, 'browser_thread'):
+                self.browser_thread.stop()
+                self.browser_thread.wait(1000)  # 等待最多1秒
+                if self.browser_thread.isRunning():
+                    self.browser_thread.terminate()  # 强制终止
+                    self.browser_thread.wait()  # 等待终止完成
+
+            if hasattr(self, 'generator_thread') and self.generator_thread.isRunning():
+                self.generator_thread.terminate()
+                self.generator_thread.wait()
+
+            if hasattr(self, 'image_processor') and self.image_processor.isRunning():
+                self.image_processor.terminate()
+                self.image_processor.wait()
+
+            # 关闭浏览器
+            if hasattr(self, 'browser_thread') and self.browser_thread.poster:
+                try:
+                    self.browser_thread.poster.close(force=True)
+                except:
+                    pass  # 忽略关闭浏览器时的错误
+
+            # 清理资源
+            self.images = []
+            self.image_list = []
+            self.current_image_index = 0
+
+            # 调用父类的closeEvent
+            super().closeEvent(event)
+
+        except Exception as e:
+            print(f"关闭应用程序时出错: {str(e)}")
+            # 即使出错也强制关闭
+            event.accept()
 
 
 if __name__ == "__main__":
