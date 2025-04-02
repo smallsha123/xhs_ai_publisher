@@ -3,7 +3,7 @@ import sys
 import signal
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QFrame,
-                             QStackedWidget)
+                             QStackedWidget, QScrollArea)
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPixmap, QColor, QIcon
 import os
@@ -16,6 +16,8 @@ from src.logger.logger import Logger
 from src.core.alert import TipWindow
 
 from src.config.constants import VERSION
+
+import requests
 
 
 # 设置日志文件路径
@@ -138,11 +140,17 @@ class XiaohongshuUI(QMainWindow):
         home_btn.setChecked(True)
         home_btn.clicked.connect(lambda: self.switch_page(0))
 
+        # 添加工具箱按钮
+        tools_btn = QPushButton("🧰") 
+        tools_btn.setCheckable(True)
+        tools_btn.clicked.connect(lambda: self.switch_page(1))
+
         settings_btn = QPushButton("⚙️")
         settings_btn.setCheckable(True)
-        settings_btn.clicked.connect(lambda: self.switch_page(1))
+        settings_btn.clicked.connect(lambda: self.switch_page(2))  # 改为2
 
         sidebar_layout.addWidget(home_btn)
+        sidebar_layout.addWidget(tools_btn)  # 添加工具箱按钮
         sidebar_layout.addWidget(settings_btn)
         sidebar_layout.addStretch()
 
@@ -178,6 +186,197 @@ class XiaohongshuUI(QMainWindow):
         # 将页面添加到堆叠窗口
         self.stack.addWidget(home_page)
         self.stack.addWidget(settings_page)
+
+        # 创建工具箱页面
+        tools_page = QWidget()
+        tools_layout = QVBoxLayout(tools_page)
+        tools_layout.setContentsMargins(0, 0, 0, 0)  # 移除边距
+        tools_layout.setSpacing(0)
+
+        # 创建滚动区域
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)  # 允许内容自适应大小
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #f1f1f1;
+                width: 8px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #888;
+                min-height: 20px;
+                border-radius: 4px;
+            }
+            QScrollBar::add-line:vertical {
+                height: 0px;
+            }
+            QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+
+        # 创建内容容器
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(15, 10, 15, 10)
+        content_layout.setSpacing(8)
+
+        # 创建视频去水印工具区域
+        watermark_frame = QFrame()
+        watermark_frame.setStyleSheet("""
+            QFrame {
+                padding: 15px;
+                background-color: white;
+                border: 1px solid #e1e4e8;
+                border-radius: 8px;
+            }
+        """)
+        watermark_layout = QVBoxLayout(watermark_frame)
+        
+        # 添加标题
+        title_label = QLabel("⚡ 视频平台水印去除工具")
+        title_label.setStyleSheet("""
+            font-size: 16pt;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        """)
+        watermark_layout.addWidget(title_label)
+        
+        # URL输入框
+        url_label = QLabel("* 请输入 URL 地址")
+        url_label.setStyleSheet("color: #e74c3c; font-size: 12pt;")
+        watermark_layout.addWidget(url_label)
+        
+        url_input = QLineEdit()
+        url_input.setPlaceholderText("请输入平台对应的 URL 地址 ~")
+        url_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px;
+                font-size: 12pt;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                background-color: white;
+            }
+        """)
+        watermark_layout.addWidget(url_input)
+        
+        # 支持平台说明
+        platform_label = QLabel("支持平台列表如下: (可点击图标进行测试)")
+        platform_label.setStyleSheet("color: #7f8c8d; margin-top: 15px;")
+        watermark_layout.addWidget(platform_label)
+        
+        # 平台图标列表
+        platform_widget = QWidget()
+        platform_layout = QHBoxLayout(platform_widget)
+        platform_layout.setSpacing(20)
+        
+        platforms = [
+            ("快手", "ks.png"),
+            ("皮皮虾", "ppx.png"), 
+            ("抖音", "dy.png"),
+            ("微视", "ws.png"),
+            ("小红书", "xhs.png"),
+            ("最右", "zy.png")
+        ]
+        
+        for name, icon in platforms:
+            btn = QPushButton()
+            btn.setIcon(QIcon(f"icons/{icon}"))
+            btn.setFixedSize(50, 50)
+            btn.setToolTip(name)
+            platform_layout.addWidget(btn)
+        
+        watermark_layout.addWidget(platform_widget)
+        
+        # 处理按钮
+        process_btn = QPushButton("⚡ 开始处理")
+        process_btn.setStyleSheet("""
+            QPushButton {
+                padding: 10px;
+                font-size: 14pt;
+                font-weight: bold;
+                background-color: #4a90e2;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                margin-top: 20px;
+            }
+            QPushButton:hover {
+                background-color: #357abd;
+            }
+        """)
+        # 保存url_input为类属性以便在其他方法中访问
+        self.url_input = url_input
+        # 连接点击事件到处理函数
+        process_btn.clicked.connect(self.process_video)
+        watermark_layout.addWidget(process_btn)
+        
+        # 在处理按钮之后添加结果展示区域
+        # 创建结果展示区域
+        result_frame = QFrame()
+        result_frame.setStyleSheet("""
+            QFrame {
+                margin-top: 20px;
+                padding: 15px;
+                background-color: #f8f9fa;
+                border: 1px solid #e1e4e8;
+                border-radius: 8px;
+            }
+            QLabel {
+                font-size: 12pt;
+                color: #2c3e50;
+            }
+        """)
+        result_layout = QVBoxLayout(result_frame)
+
+        # 添加结果标题
+        result_title = QLabel("📋 处理结果")
+        result_title.setStyleSheet("""
+            font-size: 14pt;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        """)
+        result_layout.addWidget(result_title)
+
+        # 创建结果文本展示区
+        self.result_text = QTextEdit()
+        self.result_text.setReadOnly(True)
+        self.result_text.setStyleSheet("""
+            QTextEdit {
+                font-family: Menlo, Monaco, Consolas, monospace;
+                font-size: 11pt;
+                line-height: 1.5;
+                padding: 10px;
+                background-color: white;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            }
+        """)
+        self.result_text.setMinimumHeight(200)
+        result_layout.addWidget(self.result_text)
+
+        # 将结果区域添加到水印工具布局中
+        watermark_layout.addWidget(result_frame)
+
+        # 将水印工具添加到内容布局
+        content_layout.addWidget(watermark_frame)
+        content_layout.addStretch()  # 添加弹性空间
+
+        # 设置滚动区域的内容
+        scroll_area.setWidget(content_widget)
+
+        # 将滚动区域添加到工具箱页面
+        tools_layout.addWidget(scroll_area)
+
+        # 将工具箱页面添加到堆叠窗口
+        self.stack.insertWidget(1, tools_page)
 
         # 初始化变量
         self.images = []
@@ -866,6 +1065,71 @@ class XiaohongshuUI(QMainWindow):
             print(f"关闭应用程序时出错: {str(e)}")
             # 即使出错也强制关闭
             event.accept()
+
+    def process_video(self):
+        try:
+            url = self.url_input.text().strip()
+            if not url:
+                TipWindow(self, "❌ 请输入视频URL").show()
+                return
+            
+            # 调用API
+            server = "http://127.0.0.1:8000/xhs/"
+            data = {
+                "url": url,
+                "download": True,
+                "index": [3, 6, 9]
+            }
+            
+            # 发送请求并处理结果
+            response = requests.post(server, json=data)
+            result = response.json()
+            
+            # 格式化显示结果
+            if 'data' in result:
+                data = result['data']
+                formatted_result = f"""
+📊 基础信息:
+- 标题: {data.get('作品标题', 'N/A')}
+- 类型: {data.get('作品类型', 'N/A')}
+- 发布时间: {data.get('发布时间', 'N/A')}
+
+👤 作者信息:
+- 昵称: {data.get('作者昵称', 'N/A')}
+- ID: {data.get('作者ID', 'N/A')}
+
+📈 数据统计:
+- 点赞: {data.get('点赞数量', 'N/A')}
+- 收藏: {data.get('收藏数量', 'N/A')}
+- 评论: {data.get('评论数量', 'N/A')}
+- 分享: {data.get('分享数量', 'N/A')}
+
+📝 作品描述:
+{data.get('作品描述', 'N/A')}
+
+🏷️ 标签:
+{data.get('作品标签', 'N/A')}
+
+🔗 链接:
+- 作品链接: {data.get('作品链接', 'N/A')}
+- 作者主页: {data.get('作者链接', 'N/A')}
+
+📥 下载地址:
+{"".join([f"- {url}\n" for url in data.get('下载地址', [])])}
+"""
+                # 更新结果显示
+                self.result_text.setText(formatted_result)
+                
+                # 显示成功提示
+                TipWindow(self, "✅ 处理成功").show()
+            else:
+                self.result_text.setText(f"处理失败: {result.get('message', '未知错误')}")
+                TipWindow(self, "❌ 处理失败").show()
+            
+        except Exception as e:
+            print("处理视频时出错:", str(e))
+            self.result_text.setText(f"处理出错: {str(e)}")
+            TipWindow(self, f"❌ 处理失败: {str(e)}").show()
 
 
 if __name__ == "__main__":
