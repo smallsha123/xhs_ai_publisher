@@ -501,62 +501,37 @@ class ImageProcessorThread(QThread):
             return None, None
 
 
-class LoginThread(QThread):
-    finished = pyqtSignal(bool)
-    error = pyqtSignal(str)
-    status = pyqtSignal(str)
-    poster_ready = pyqtSignal(object)  # 添加新的信号用于传递poster对象
-
-    def __init__(self, phone):
+class BrowserThread(QThread):
+    def __init__(self):
         super().__init__()
-        self.phone = phone
+        self.poster = None
+        self.action_queue = []
+        self.is_running = True
 
     def run(self):
-        try:
-            self.status.emit("正在登录...")
-            poster = XiaohongshuPoster()
-            poster.login(self.phone)
-            self.status.emit("登录成功")
-            self.poster_ready.emit(poster)  # 发送poster对象
-            self.finished.emit(True)
-        except Exception as e:
-            self.error.emit(str(e))
-            # 登录失败时才关闭浏览器
-            if hasattr(self, 'poster'):
-                self.poster.close(force=True)
+        while self.is_running:
+            if self.action_queue:
+                action = self.action_queue.pop(0)
+                try:
+                    if action['type'] == 'login':
+                        self.poster = XiaohongshuPoster()
+                        self.poster.login(action['phone'])
+                        action['callback'](self.poster)
+                    elif action['type'] == 'preview' and self.poster:
+                        self.poster.post_article(
+                            action['title'],
+                            action['content'],
+                            action['images']
+                        )
+                        action['callback']()
+                except Exception as e:
+                    action['error_callback'](str(e))
+            self.msleep(100)  # 避免CPU占用过高
 
-    def handle_login_result(self):
-        TipWindow(self, "✅ 登录成功").show()
-
-    def login(self):
-        try:
-            phone = self.phone_input.text()
-            country_code = self.country_combo.currentText().split(
-                '(')[1].replace(')', '')
-
-            if not phone:
-                TipWindow(self, "❌ 请输入手机号").show()
-                return
-
-            # 获取登录按钮并更新状态
-            login_btn = self.findChild(QPushButton, "login_btn")
-            if login_btn:
-                login_btn.setText("⏳ 登录中...")
-                login_btn.setEnabled(False)
-
-            # 创建并启动登录线程
-            self.login_thread = LoginThread(phone)
-            self.login_thread.finished.connect(self.handle_login_result)
-            self.login_thread.error.connect(self.handle_login_error)
-            self.login_thread.poster_ready.connect(self.handle_poster_ready)  # 连接新的信号
-            self.login_thread.start()
-
-        except Exception as e:
-            TipWindow(self, f"❌ 登录失败: {str(e)}").show()
-
-    def handle_poster_ready(self, poster):
-        """处理登录成功后的poster对象"""
-        self.poster = poster
+    def stop(self):
+        self.is_running = False
+        if self.poster:
+            self.poster.close(force=True)
 
 
 class XiaohongshuUI(QMainWindow):
@@ -771,6 +746,10 @@ class XiaohongshuUI(QMainWindow):
 
         # 创建右侧预览区域
         self.create_preview_section(content_layout)
+
+        # 创建浏览器线程
+        self.browser_thread = BrowserThread()
+        self.browser_thread.start()
 
     def center(self):
         """将窗口移动到屏幕中央"""
@@ -1118,12 +1097,13 @@ class XiaohongshuUI(QMainWindow):
                 login_btn.setText("⏳ 登录中...")
                 login_btn.setEnabled(False)
 
-            # 创建并启动登录线程
-            self.login_thread = LoginThread(phone)
-            self.login_thread.finished.connect(self.handle_login_result)
-            self.login_thread.error.connect(self.handle_login_error)
-            self.login_thread.poster_ready.connect(self.handle_poster_ready)  # 连接新的信号
-            self.login_thread.start()
+            # 添加登录任务到浏览器线程
+            self.browser_thread.action_queue.append({
+                'type': 'login',
+                'phone': phone,
+                'callback': self.handle_poster_ready,
+                'error_callback': self.handle_login_error
+            })
 
         except Exception as e:
             TipWindow(self, f"❌ 登录失败: {str(e)}").show()
@@ -1136,13 +1116,9 @@ class XiaohongshuUI(QMainWindow):
             login_btn.setEnabled(True)
         TipWindow(self, f"❌ 登录失败: {error_msg}").show()
 
-    def handle_login_result(self):
-        # 恢复登录按钮状态
-        login_btn = self.findChild(QPushButton, "login_btn")
-        if login_btn:
-            login_btn.setText("🚀 登录")
-            login_btn.setEnabled(True)
-        TipWindow(self, "✅ 登录成功").show()
+    def handle_poster_ready(self, poster):
+        """处理登录成功后的poster对象"""
+        self.poster = poster
 
     def generate_content(self):
         try:
@@ -1282,18 +1258,31 @@ class XiaohongshuUI(QMainWindow):
 
     def preview_post(self):
         try:
-            if not hasattr(self, 'poster'):
+            if not self.browser_thread.poster:
                 TipWindow(self, "❌ 请先登录").show()
                 return
 
             title = self.title_input.text()
-            content = self.subtitle_input.text()
+            content = self.subtitle_input.toPlainText()
 
-            self.poster.post_article(title, content, self.images)
-            TipWindow(self, "🎉 文章已准备好，请在浏览器中检查并发布").show()
+            # 添加预览任务到浏览器线程
+            self.browser_thread.action_queue.append({
+                'type': 'preview',
+                'title': title,
+                'content': content,
+                'images': self.images,
+                'callback': self.handle_preview_result,
+                'error_callback': self.handle_preview_error
+            })
 
         except Exception as e:
             TipWindow(self, f"❌ 预览发布失败: {str(e)}").show()
+
+    def handle_preview_result(self):
+        TipWindow(self, "🎉 文章已准备好，请在浏览器中检查并发布").show()
+
+    def handle_preview_error(self, error_msg):
+        TipWindow(self, f"❌ 预览发布失败: {error_msg}").show()
 
     def switch_page(self, index):
         # 切换页面
@@ -1324,9 +1313,12 @@ class XiaohongshuUI(QMainWindow):
         except Exception as e:
             self.logger.error(f"更新作者配置失败: {str(e)}")
 
-    def handle_poster_ready(self, poster):
-        """处理登录成功后的poster对象"""
-        self.poster = poster
+    def closeEvent(self, event):
+        # 关闭浏览器线程
+        if hasattr(self, 'browser_thread'):
+            self.browser_thread.stop()
+            self.browser_thread.wait()
+        super().closeEvent(event)
 
 
 if __name__ == "__main__":
