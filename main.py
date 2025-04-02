@@ -970,28 +970,31 @@ class XiaohongshuUI(QMainWindow):
         input_label = QLabel("✏️ 内容输入")
         input_layout.addWidget(input_label)
 
+        # 创建一个水平布局来包含输入框和按钮
+        input_container = QWidget()
+        input_container_layout = QVBoxLayout(input_container)
+        input_container_layout.setContentsMargins(0, 0, 0, 0)
+        input_container_layout.setSpacing(0)
+
+        # 添加输入框
         self.input_text = QTextEdit()
         self.input_text.setMinimumHeight(120)  # 减小高度
         self.input_text.setPlainText("中医的好处")  # 设置默认值
-        input_layout.addWidget(self.input_text)
+        input_container_layout.addWidget(self.input_text)
 
-        # 添加按钮区域到内容输入框下面
+        # 创建按钮布局
         button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 0, 0, 0)
         button_layout.setSpacing(10)
+        button_layout.addStretch()  # 添加弹性空间，使按钮靠右
 
         # 将生成按钮保存为类属性
         self.generate_btn = QPushButton("✨ 生成内容")
         self.generate_btn.clicked.connect(self.generate_content)
         button_layout.addWidget(self.generate_btn)
 
-        # 修改预览按钮的创建部分
-        preview_btn = QPushButton("🎯 预览发布")
-        preview_btn.setObjectName("preview_btn")  # 添加对象名称
-        preview_btn.clicked.connect(self.preview_post)
-        button_layout.addWidget(preview_btn)
-
-        button_layout.addStretch()
-        input_layout.addLayout(button_layout)
+        input_container_layout.addLayout(button_layout)
+        input_layout.addWidget(input_container)
 
         # 添加到主布局
         left_layout.addWidget(title_frame)
@@ -1041,6 +1044,29 @@ class XiaohongshuUI(QMainWindow):
         title_label.setStyleSheet(
             "font-size: 13pt; font-weight: bold; color: #2c3e50; padding-bottom: 5px;")
         header_layout.addWidget(title_label)
+        
+        # 添加预览发布按钮
+        preview_btn = QPushButton("🎯 预览发布")
+        preview_btn.setObjectName("preview_btn")
+        preview_btn.setStyleSheet("""
+            QPushButton {
+                padding: 5px 13px;
+                font-size: 12pt;
+                background-color: #4a90e2;
+                color: white;
+                border: none;
+                border-radius: 15px;
+            }
+            QPushButton:hover {
+                background-color: #357abd;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+            }
+        """)
+        preview_btn.clicked.connect(self.preview_post)
+        header_layout.addWidget(preview_btn)
+        
         header_layout.addStretch()
         preview_layout.addLayout(header_layout)
 
