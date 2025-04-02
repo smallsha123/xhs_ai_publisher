@@ -5,8 +5,41 @@ import json
 import os
 import sys
 import logging
+from PyQt6.QtWidgets import QInputDialog, QLineEdit
+from PyQt6.QtCore import QObject, pyqtSignal, QTimer, QMetaObject, Qt, QThread, pyqtSlot
+from PyQt6.QtWidgets import QApplication
 log_path = os.path.expanduser('~/Desktop/xhsai_error.log')
 logging.basicConfig(filename=log_path, level=logging.DEBUG)
+
+class VerificationCodeHandler(QObject):
+    code_received = pyqtSignal(str)
+    
+    def __init__(self):
+        super().__init__()
+        self.code = None
+        self.dialog = None
+        
+    def get_verification_code(self):
+        # 确保在主线程中执行
+        if QApplication.instance().thread() != QThread.currentThread():
+            # 如果不在主线程，使用moveToThread移动到主线程
+            self.moveToThread(QApplication.instance().thread())
+            # 使用invokeMethod确保在主线程中执行
+            QMetaObject.invokeMethod(self, "_show_dialog", Qt.ConnectionType.BlockingQueuedConnection)
+        else:
+            # 如果已经在主线程，直接执行
+            self._show_dialog()
+        
+        return self.code
+    
+    @pyqtSlot()
+    def _show_dialog(self):
+        code, ok = QInputDialog.getText(None, "验证码", "请输入验证码:", QLineEdit.EchoMode.Normal)
+        if ok:
+            self.code = code
+            self.code_received.emit(code)
+        else:
+            self.code = ""
 
 class XiaohongshuPoster:
     def __init__(self):
@@ -14,6 +47,7 @@ class XiaohongshuPoster:
         self.browser = None
         self.context = None
         self.page = None
+        self.verification_handler = VerificationCodeHandler()
         self.initialize()
 
     def initialize(self):
@@ -249,9 +283,10 @@ class XiaohongshuPoster:
                 except:
                     print("无法找到发送验证码按钮")
 
-        # 输入验证码
-        verification_code = input("请输入验证码: ")
-        self.page.fill("//input[@placeholder='验证码']", verification_code)
+        # 使用信号机制获取验证码
+        verification_code = self.verification_handler.get_verification_code()
+        if verification_code:
+            self.page.fill("//input[@placeholder='验证码']", verification_code)
 
         # 点击登录按钮
         self.page.click(".beer-login-btn")

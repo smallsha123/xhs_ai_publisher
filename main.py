@@ -94,7 +94,7 @@ class HomePage(QWidget):
         login_controls.addWidget(QLabel("📱 手机号:"))
         self.phone_input = QLineEdit()
         self.phone_input.setFixedWidth(180)
-        self.phone_input.setText("15239851762")
+        self.phone_input.setText("13060178738")
         login_controls.addWidget(self.phone_input)
 
         # 登录按钮
