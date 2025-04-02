@@ -11,7 +11,8 @@ from src.core.write_xiaohongshu import XiaohongshuPoster
 def test_xiaohongshu():
     # 获取项目根目录
     poster = XiaohongshuPoster()
-    phone = input("请输入手机号: ")
+    # phone = input("请输入手机号: ")
+    phone = 15239851762
     poster.login(phone)
     
     rprint("登录成功")

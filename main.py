@@ -4,7 +4,7 @@ import signal
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QFrame,
                              QProgressBar, QScrollArea, QGraphicsView, QGraphicsScene, QGraphicsOpacityEffect,
-                             QStackedWidget)
+                             QStackedWidget, QGraphicsDropShadowEffect)
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QPoint, QRectF
 from PyQt6.QtGui import QPixmap, QImage, QPalette, QColor, QPainter, QPen, QBrush, QIcon
 import os
@@ -210,31 +210,49 @@ class TipWindow(QWidget):
         self.msg_frame = QFrame()
         self.msg_frame.setStyleSheet("""
             QFrame {
-                background-color: #2c3e50;
-                border-radius: 10px;
+                background-color: white;
+                border-radius: 8px;
+                border: 1px solid rgba(0, 0, 0, 0.1);
             }
             QLabel {
-                color: white;
                 background: transparent;
                 border: none;
             }
         """)
 
+        # 添加阴影效果
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(20)
+        shadow.setColor(QColor(0, 0, 0, 30))
+        shadow.setOffset(0, 4)
+        self.msg_frame.setGraphicsEffect(shadow)
+
         # 消息框布局
         msg_layout = QHBoxLayout(self.msg_frame)
-        msg_layout.setContentsMargins(20, 15, 20, 15)
-        msg_layout.setSpacing(15)
+        msg_layout.setContentsMargins(16, 16, 16, 16)
+        msg_layout.setSpacing(12)
 
         # 设置图标和颜色
         if "❌" in message:
-            icon = "❌"
-            color = "#e74c3c"
+            icon = "⚠️"
+            color = "#E6A23C"  # 警告色
+            text_color = "#606266"  # 文字颜色
+            title = "警告"
         elif "✅" in message:
             icon = "✅"
-            color = "#2ecc71"
+            color = "#67C23A"  # 成功色
+            text_color = "#606266"
+            title = "成功"
+        elif "错误" in message:
+            icon = "❌"
+            color = "#F56C6C"  # 错误色
+            text_color = "#606266"
+            title = "错误"
         else:
             icon = "ℹ️"
-            color = "#3498db"
+            color = "#909399"  # 信息色
+            text_color = "#606266"
+            title = "消息"
 
         # 清理消息文本
         message = message.replace("❌", "").replace("✅", "").strip()
@@ -242,29 +260,65 @@ class TipWindow(QWidget):
         # 创建图标标签
         icon_label = QLabel(icon)
         icon_label.setStyleSheet(f"""
-            font-size: 24px;
+            font-size: 20px;
             color: {color};
             padding: 0;
             margin: 0;
         """)
         msg_layout.addWidget(icon_label)
 
+        # 创建文字容器
+        text_container = QVBoxLayout()
+        text_container.setSpacing(4)
+
+        # 创建标题标签
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"""
+            font-size: 14px;
+            font-weight: 500;
+            color: {color};
+            padding: 0;
+            margin: 0;
+        """)
+        text_container.addWidget(title_label)
+
         # 创建消息标签
         msg_label = QLabel(message)
-        msg_label.setStyleSheet("""
+        msg_label.setStyleSheet(f"""
             font-size: 14px;
-            font-weight: bold;
+            color: {text_color};
             padding: 0;
             margin: 0;
         """)
         msg_label.setWordWrap(True)
-        msg_layout.addWidget(msg_label, 1)
+        text_container.addWidget(msg_label)
+
+        # 将文字容器添加到主布局
+        msg_layout.addLayout(text_container, 1)
+
+        # 创建关闭按钮
+        close_btn = QPushButton("×")
+        close_btn.setStyleSheet("""
+            QPushButton {
+                border: none;
+                font-size: 18px;
+                color: #909399;
+                background: transparent;
+                padding: 0;
+                margin: 0;
+            }
+            QPushButton:hover {
+                color: #606266;
+            }
+        """)
+        close_btn.clicked.connect(self.close)
+        msg_layout.addWidget(close_btn)
 
         # 将消息框添加到主布局
         layout.addWidget(self.msg_frame)
 
         # 设置固定宽度和调整大小
-        self.setFixedWidth(400)
+        self.setFixedWidth(380)
         self.adjustSize()
 
         # 设置动画效果
@@ -284,13 +338,9 @@ class TipWindow(QWidget):
     def showEvent(self, event):
         super().showEvent(event)
         if self.parent():
-            # 获取主窗口的实际位置和大小
             parent_size = self.parent().size()
-
-            # 计算弹窗位置，使其在主窗口中心
             x = (parent_size.width() - self.width()) // 2
             y = 30
-            # 移动到计算出的位置
             self.move(x, y)
 
     def fade_in_step(self):
@@ -313,14 +363,19 @@ class ContentGeneratorThread(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, input_text, header_title, author):
+    def __init__(self, input_text, header_title, author, generate_btn):
         super().__init__()
         self.input_text = input_text
         self.header_title = header_title
         self.author = author
+        self.generate_btn = generate_btn
 
     def run(self):
         try:
+            # 更新按钮状态
+            self.generate_btn.setText("⏳ 生成中...")
+            self.generate_btn.setEnabled(False)
+
             workflow_id = "7431484143153070132"
             parameters = {
                 "BOT_USER_INPUT": self.input_text,
@@ -354,6 +409,10 @@ class ContentGeneratorThread(QThread):
             self.finished.emit(result)
         except Exception as e:
             self.error.emit(str(e))
+        finally:
+            # 恢复按钮状态
+            self.generate_btn.setText("✨ 生成内容")
+            self.generate_btn.setEnabled(True)
 
 
 class ImageProcessorThread(QThread):
@@ -848,9 +907,10 @@ class XiaohongshuUI(QMainWindow):
         button_layout = QHBoxLayout()
         button_layout.setSpacing(10)
 
-        generate_btn = QPushButton("✨ 生成内容")
-        generate_btn.clicked.connect(self.generate_content)
-        button_layout.addWidget(generate_btn)
+        # 将生成按钮保存为类属性
+        self.generate_btn = QPushButton("✨ 生成内容")
+        self.generate_btn.clicked.connect(self.generate_content)
+        button_layout.addWidget(self.generate_btn)
 
         preview_btn = QPushButton("🎯 预览发布")
         preview_btn.clicked.connect(self.preview_post)
@@ -990,15 +1050,12 @@ class XiaohongshuUI(QMainWindow):
                 TipWindow(self, "❌ 请输入内容").show()
                 return
 
-            # 显示加载窗口
-            self.loading_window = LoadingWindow(self)
-            self.loading_window.show()
-
             # 创建并启动生成线程
             self.generator_thread = ContentGeneratorThread(
                 input_text,
                 self.header_input.text(),
-                self.author_input.text()
+                self.author_input.text(),
+                self.generate_btn  # 传递按钮引用
             )
             self.generator_thread.finished.connect(
                 self.handle_generation_result)
@@ -1006,10 +1063,11 @@ class XiaohongshuUI(QMainWindow):
             self.generator_thread.start()
 
         except Exception as e:
+            self.generate_btn.setText("✨ 生成内容")  # 恢复按钮文字
+            self.generate_btn.setEnabled(True)  # 恢复按钮可点击状态
             TipWindow(self, f"❌ 生成内容失败: {str(e)}").show()
 
     def handle_generation_result(self, result):
-        self.loading_window.close()
         self.update_ui_after_generate(
             result['title'],
             result['content'],
@@ -1019,7 +1077,6 @@ class XiaohongshuUI(QMainWindow):
         )
 
     def handle_generation_error(self, error_msg):
-        self.loading_window.close()
         TipWindow(self, f"❌ 生成内容失败: {error_msg}").show()
 
     def update_ui_after_generate(self, title, content, cover_image_url, content_image_urls, input_text):
