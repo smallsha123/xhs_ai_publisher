@@ -18,7 +18,11 @@ from src.core.alert import TipWindow
 from src.config.constants import VERSION
 
 import requests
+import base64
+import io
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import uvicorn
 
 # 设置日志文件路径
 log_path = os.path.expanduser('~/Desktop/xhsai_error.log')
@@ -654,6 +658,7 @@ class ToolsPage(QWidget):
         super().__init__(parent)
         self.parent = parent
         self.setup_ui()
+        self.media_cache = {}  # 用于缓存已下载的媒体文件
 
     def setup_ui(self):
         """设置UI"""
@@ -818,35 +823,60 @@ class ToolsPage(QWidget):
         result_frame.setStyleSheet("""
             QFrame {
                 margin-top: 20px;
-                padding: 15px;
-                background-color: #f8f9fa;
+                padding: 20px;
+                background-color: white;
                 border: 1px solid #e1e4e8;
-                border-radius: 8px;
+                border-radius: 12px;
             }
             QLabel {
                 font-family: """ + ("Menlo" if sys.platform == "darwin" else "Consolas") + """;
-                font-size: 12pt;
                 color: #2c3e50;
             }
             QTextEdit {
                 font-family: """ + ("Menlo" if sys.platform == "darwin" else "Consolas") + """;
                 font-size: 11pt;
-                line-height: 1.5;
-                padding: 10px;
+                line-height: 1.6;
+                padding: 15px;
                 background-color: white;
-                border: 1px solid #ddd;
-                border-radius: 4px;
+                border: none;
+                border-radius: 8px;
+            }
+            QLabel#section_header {
+                font-size: 14pt;
+                font-weight: bold;
+                color: #1a1a1a;
+                padding: 5px 0;
+                margin-top: 10px;
+            }
+            QLabel#section_content {
+                font-size: 12pt;
+                color: #666666;
+                padding: 3px 0;
+            }
+            QLabel#section_divider {
+                background-color: #f5f5f5;
+                min-height: 1px;
+                margin: 10px 0;
+            }
+            QLabel#download_link {
+                color: #4a90e2;
+                text-decoration: underline;
+                cursor: pointer;
             }
         """)
         result_layout = QVBoxLayout(result_frame)
+        result_layout.setSpacing(0)
+        result_layout.setContentsMargins(0, 0, 0, 0)
 
         # 添加结果标题
-        result_title = QLabel("📋 处理结果")
+        result_title = QLabel("📋 解析结果")
         result_title.setStyleSheet("""
-            font-size: 14pt;
+            font-size: 16pt;
             font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 10px;
+            color: #1a1a1a;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
         """)
         result_layout.addWidget(result_title)
 
@@ -857,14 +887,13 @@ class ToolsPage(QWidget):
             QTextEdit {
                 font-family: """ + ("Menlo" if sys.platform == "darwin" else "Consolas") + """;
                 font-size: 11pt;
-                line-height: 1.5;
-                padding: 10px;
+                line-height: 1.6;
+                padding: 15px;
                 background-color: white;
-                border: 1px solid #ddd;
-                border-radius: 4px;
+                border: none;
             }
         """)
-        self.result_text.setMinimumHeight(200)
+        self.result_text.setMinimumHeight(400)
         result_layout.addWidget(self.result_text)
 
         # 将结果区域添加到水印工具布局中
@@ -902,53 +931,170 @@ class ToolsPage(QWidget):
             # 格式化显示结果
             if 'data' in result:
                 data = result['data']
+                # 创建预览区域的HTML
+                preview_html = self.create_media_preview_html(data.get('下载地址', []))
+                
                 formatted_result = f"""
-📊 基础信息:
-- 标题: {data.get('作品标题', 'N/A')}
-- 类型: {data.get('作品类型', 'N/A')}
-- 发布时间: {data.get('发布时间', 'N/A')}
+<h2 style='color: #1a1a1a; margin-bottom: 20px;'>🎥 作品信息</h2>
 
-👤 作者信息:
-- 昵称: {data.get('作者昵称', 'N/A')}
-- ID: {data.get('作者ID', 'N/A')}
+<div style='background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>
+    <div style='font-size: 14pt; font-weight: bold; color: #1a1a1a; margin-bottom: 10px;'>{data.get('作品标题', 'N/A')}</div>
+    <div style='color: #666666; margin-bottom: 5px;'>📝 {data.get('作品描述', 'N/A')}</div>
+    <div style='color: #999999; font-size: 10pt;'>
+        {data.get('作品类型', 'N/A')} · {data.get('发布时间', 'N/A')}
+    </div>
+</div>
 
-📈 数据统计:
-- 点赞: {data.get('点赞数量', 'N/A')}
-- 收藏: {data.get('收藏数量', 'N/A')}
-- 评论: {data.get('评论数量', 'N/A')}
-- 分享: {data.get('分享数量', 'N/A')}
+<h3 style='color: #1a1a1a; margin: 15px 0;'>👤 创作者信息</h3>
+<div style='background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>
+    <div style='font-weight: bold; color: #1a1a1a;'>{data.get('作者昵称', 'N/A')}</div>
+    <div style='color: #666666;'>ID: {data.get('作者ID', 'N/A')}</div>
+</div>
 
-📝 作品描述:
-{data.get('作品描述', 'N/A')}
+<h3 style='color: #1a1a1a; margin: 15px 0;'>📊 数据统计</h3>
+<div style='display: flex; align-items: center; background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>
+    <div style='flex: 1; text-align: center; position: relative;'>
+        <div style='display: flex; align-items: center; justify-content: center; gap: 8px;'>
+            <span style='font-size: 16pt; font-weight: bold; color: #1a1a1a;'>{data.get('点赞数量', 'N/A')}</span>
+            <span style='color: #666666;'>👍 点赞</span>
+        </div>
+    </div>
+    <div style='width: 1px; height: 24px; background-color: #e1e4e8;'></div>
+    <div style='flex: 1; text-align: center; position: relative;'>
+        <div style='display: flex; align-items: center; justify-content: center; gap: 8px;'>
+            <span style='font-size: 16pt; font-weight: bold; color: #1a1a1a;'>{data.get('收藏数量', 'N/A')}</span>
+            <span style='color: #666666;'>⭐ 收藏</span>
+        </div>
+    </div>
+    <div style='width: 1px; height: 24px; background-color: #e1e4e8;'></div>
+    <div style='flex: 1; text-align: center; position: relative;'>
+        <div style='display: flex; align-items: center; justify-content: center; gap: 8px;'>
+            <span style='font-size: 16pt; font-weight: bold; color: #1a1a1a;'>{data.get('评论数量', 'N/A')}</span>
+            <span style='color: #666666;'>💬 评论</span>
+        </div>
+    </div>
+    <div style='width: 1px; height: 24px; background-color: #e1e4e8;'></div>
+    <div style='flex: 1; text-align: center; position: relative;'>
+        <div style='display: flex; align-items: center; justify-content: center; gap: 8px;'>
+            <span style='font-size: 16pt; font-weight: bold; color: #1a1a1a;'>{data.get('分享数量', 'N/A')}</span>
+            <span style='color: #666666;'>🔄 分享</span>
+        </div>
+    </div>
+</div>
 
-🏷️ 标签:
-{data.get('作品标签', 'N/A')}
+<h3 style='color: #1a1a1a; margin: 15px 0;'>🏷️ 标签</h3>
+<div style='background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>
+    <div style='color: #4a90e2;'>{data.get('作品标签', 'N/A')}</div>
+</div>
 
-🔗 链接:
-- 作品链接: {data.get('作品链接', 'N/A')}
-- 作者主页: {data.get('作者链接', 'N/A')}
+<h3 style='color: #1a1a1a; margin: 15px 0;'>🔗 链接</h3>
+<div style='background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>
+    <div style='margin-bottom: 5px;'><span style='color: #666666;'>作品链接：</span><a href='{data.get('作品链接', '#')}' style='color: #4a90e2;'>{data.get('作品链接', 'N/A')}</a></div>
+    <div><span style='color: #666666;'>作者主页：</span><a href='{data.get('作者链接', '#')}' style='color: #4a90e2;'>{data.get('作者链接', 'N/A')}</a></div>
+</div>
 
-📥 下载地址:
-{"".join([f"- {url}\n" for url in data.get('下载地址', [])])}
+<h3 style='color: #1a1a1a; margin: 15px 0;'>📥 媒体预览</h3>
+{preview_html}
 """
                 # 更新结果显示
-                self.result_text.setText(formatted_result)
+                self.result_text.setHtml(formatted_result)
                 
                 # 显示成功提示
-                TipWindow(self.parent, "✅ 处理成功").show()
+                TipWindow(self.parent, "✅ 解析成功").show()
             else:
-                self.result_text.setText(f"处理失败: {result.get('message', '未知错误')}")
-                TipWindow(self.parent, "❌ 处理失败").show()
+                error_message = f"""
+<div style='background-color: #fee2e2; padding: 15px; border-radius: 8px; margin: 10px 0;'>
+    <div style='color: #dc2626; font-weight: bold;'>❌ 解析失败</div>
+    <div style='color: #7f1d1d; margin-top: 5px;'>{result.get('message', '未知错误')}</div>
+</div>
+"""
+                self.result_text.setHtml(error_message)
+                TipWindow(self.parent, "❌ 解析失败").show()
             
         except Exception as e:
             print("处理视频时出错:", str(e))
-            self.result_text.setText(f"处理出错: {str(e)}")
+            error_message = f"""
+<div style='background-color: #fee2e2; padding: 15px; border-radius: 8px; margin: 10px 0;'>
+    <div style='color: #dc2626; font-weight: bold;'>❌ 处理出错</div>
+    <div style='color: #7f1d1d; margin-top: 5px;'>{str(e)}</div>
+</div>
+"""
+            self.result_text.setHtml(error_message)
             TipWindow(self.parent, f"❌ 处理失败: {str(e)}").show()
+
+    def create_media_preview_html(self, urls):
+        """创建媒体预览的HTML"""
+        if not urls:
+            return "<div style='color: #666666;'>暂无可下载的媒体文件</div>"
+
+        preview_html = "<div style='display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;'>"
+        
+        # 创建线程池
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            # 提交所有图片加载任务
+            future_to_url = {executor.submit(self.load_image, url): url for url in urls}
+            
+            # 处理完成的任务
+            for future in as_completed(future_to_url):
+                url = future_to_url[future]
+                try:
+                    result = future.result()
+                    if result['success']:
+                        preview_html += f"""
+                        <div style='background-color: #f8f9fa; padding: 10px; border-radius: 8px; text-align: center;'>
+                            <img src="{result['data']}" style='width: 100%; max-width: 300px; border-radius: 4px; object-fit: cover;' loading="lazy">
+                            <div style='margin-top: 8px;'>
+                                <a href="{url}" style='color: #4a90e2; text-decoration: none;' target="_blank">下载图片</a>
+                            </div>
+                        </div>
+                        """
+                    else:
+                        preview_html += f"""
+                        <div style='background-color: #f8f9fa; padding: 10px; border-radius: 8px; text-align: center;'>
+                            <div style='color: #666666; margin-bottom: 8px;'>图片加载失败</div>
+                            <a href="{url}" style='color: #4a90e2; text-decoration: none;' target="_blank">下载图片</a>
+                        </div>
+                        """
+                except Exception as e:
+                    print(f"处理图片结果时出错: {str(e)}")
+                    preview_html += f"""
+                    <div style='background-color: #f8f9fa; padding: 10px; border-radius: 8px; text-align: center;'>
+                        <div style='color: #666666; margin-bottom: 8px;'>处理图片时出错</div>
+                        <a href="{url}" style='color: #4a90e2; text-decoration: none;' target="_blank">下载图片</a>
+                    </div>
+                    """
+        
+        preview_html += "</div>"
+        return preview_html
 
     def fill_example_url(self, url):
         """填充示例URL"""
         self.url_input.setText(url)
         TipWindow(self.parent, "已填充示例链接，请替换为实际链接").show()
+
+    def load_image(self, url):
+        """加载单个图片"""
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Referer': 'https://www.xiaohongshu.com/'
+            }
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            content_type = response.headers.get('content-type', 'image/jpeg')
+            image_data = base64.b64encode(response.content).decode('utf-8')
+            return {
+                'success': True,
+                'url': url,
+                'data': f"data:{content_type};base64,{image_data}"
+            }
+        except Exception as e:
+            print(f"加载图片失败: {str(e)}")
+            return {
+                'success': False,
+                'url': url,
+                'error': str(e)
+            }
 
 class SettingsPage(QWidget):
     """设置页面类"""
@@ -1120,7 +1266,7 @@ class XiaohongshuUI(QMainWindow):
         self.stack.addWidget(self.home_page)
         self.stack.insertWidget(1, self.tools_page)
         self.stack.addWidget(self.settings_page)
-
+        
         # 创建浏览器线程
         self.browser_thread = BrowserThread()
         # 连接信号
