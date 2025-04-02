@@ -1044,29 +1044,6 @@ class XiaohongshuUI(QMainWindow):
         title_label.setStyleSheet(
             "font-size: 13pt; font-weight: bold; color: #2c3e50; padding-bottom: 5px;")
         header_layout.addWidget(title_label)
-        
-        # 添加预览发布按钮
-        preview_btn = QPushButton("🎯 预览发布")
-        preview_btn.setObjectName("preview_btn")
-        preview_btn.setStyleSheet("""
-            QPushButton {
-                padding: 5px 13px;
-                font-size: 12pt;
-                background-color: #4a90e2;
-                color: white;
-                border: none;
-                border-radius: 15px;
-            }
-            QPushButton:hover {
-                background-color: #357abd;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-            }
-        """)
-        preview_btn.clicked.connect(self.preview_post)
-        header_layout.addWidget(preview_btn)
-        
         header_layout.addStretch()
         preview_layout.addLayout(header_layout)
 
@@ -1120,6 +1097,29 @@ class XiaohongshuUI(QMainWindow):
             padding: 10px 0;
         """)
         preview_layout.addWidget(self.image_title)
+
+        # 添加预览发布按钮
+        preview_btn = QPushButton("🎯 预览发布")
+        preview_btn.setObjectName("preview_btn")
+        preview_btn.setStyleSheet("""
+            QPushButton {
+                padding: 8px 15px;
+                font-size: 12pt;
+                background-color: #4a90e2;
+                color: white;
+                border: none;
+                border-radius: 15px;
+                margin-top: 10px;
+            }
+            QPushButton:hover {
+                background-color: #357abd;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+            }
+        """)
+        preview_btn.clicked.connect(self.preview_post)
+        preview_layout.addWidget(preview_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # 初始化时禁用按钮
         self.prev_btn.setEnabled(False)
