@@ -502,6 +502,14 @@ class ImageProcessorThread(QThread):
 
 
 class BrowserThread(QThread):
+    # 添加信号
+    login_status_changed = pyqtSignal(str, bool)  # 用于更新登录按钮状态
+    preview_status_changed = pyqtSignal(str, bool)  # 用于更新预览按钮状态
+    login_success = pyqtSignal(object)  # 用于传递poster对象
+    login_error = pyqtSignal(str)  # 用于传递错误信息
+    preview_success = pyqtSignal()  # 用于通知预览成功
+    preview_error = pyqtSignal(str)  # 用于传递预览错误信息
+
     def __init__(self):
         super().__init__()
         self.poster = None
@@ -516,16 +524,19 @@ class BrowserThread(QThread):
                     if action['type'] == 'login':
                         self.poster = XiaohongshuPoster()
                         self.poster.login(action['phone'])
-                        action['callback'](self.poster)
+                        self.login_success.emit(self.poster)
                     elif action['type'] == 'preview' and self.poster:
                         self.poster.post_article(
                             action['title'],
                             action['content'],
                             action['images']
                         )
-                        action['callback']()
+                        self.preview_success.emit()
                 except Exception as e:
-                    action['error_callback'](str(e))
+                    if action['type'] == 'login':
+                        self.login_error.emit(str(e))
+                    elif action['type'] == 'preview':
+                        self.preview_error.emit(str(e))
             self.msleep(100)  # 避免CPU占用过高
 
     def stop(self):
@@ -749,6 +760,13 @@ class XiaohongshuUI(QMainWindow):
 
         # 创建浏览器线程
         self.browser_thread = BrowserThread()
+        # 连接信号
+        self.browser_thread.login_status_changed.connect(self.update_login_button)
+        self.browser_thread.preview_status_changed.connect(self.update_preview_button)
+        self.browser_thread.login_success.connect(self.handle_poster_ready)
+        self.browser_thread.login_error.connect(self.handle_login_error)
+        self.browser_thread.preview_success.connect(self.handle_preview_result)
+        self.browser_thread.preview_error.connect(self.handle_preview_error)
         self.browser_thread.start()
 
     def center(self):
@@ -966,7 +984,9 @@ class XiaohongshuUI(QMainWindow):
         self.generate_btn.clicked.connect(self.generate_content)
         button_layout.addWidget(self.generate_btn)
 
+        # 修改预览按钮的创建部分
         preview_btn = QPushButton("🎯 预览发布")
+        preview_btn.setObjectName("preview_btn")  # 添加对象名称
         preview_btn.clicked.connect(self.preview_post)
         button_layout.addWidget(preview_btn)
 
@@ -1081,6 +1101,20 @@ class XiaohongshuUI(QMainWindow):
 
         parent_layout.addWidget(preview_frame)
 
+    def update_login_button(self, text, enabled):
+        """更新登录按钮状态"""
+        login_btn = self.findChild(QPushButton, "login_btn")
+        if login_btn:
+            login_btn.setText(text)
+            login_btn.setEnabled(enabled)
+
+    def update_preview_button(self, text, enabled):
+        """更新预览按钮状态"""
+        preview_btn = self.findChild(QPushButton, "preview_btn")
+        if preview_btn:
+            preview_btn.setText(text)
+            preview_btn.setEnabled(enabled)
+
     def login(self):
         try:
             phone = self.phone_input.text()
@@ -1091,18 +1125,13 @@ class XiaohongshuUI(QMainWindow):
                 TipWindow(self, "❌ 请输入手机号").show()
                 return
 
-            # 获取登录按钮并更新状态
-            login_btn = self.findChild(QPushButton, "login_btn")
-            if login_btn:
-                login_btn.setText("⏳ 登录中...")
-                login_btn.setEnabled(False)
+            # 更新登录按钮状态
+            self.update_login_button("⏳ 登录中...", False)
 
             # 添加登录任务到浏览器线程
             self.browser_thread.action_queue.append({
                 'type': 'login',
-                'phone': phone,
-                'callback': self.handle_poster_ready,
-                'error_callback': self.handle_login_error
+                'phone': phone
             })
 
         except Exception as e:
@@ -1110,15 +1139,15 @@ class XiaohongshuUI(QMainWindow):
 
     def handle_login_error(self, error_msg):
         # 恢复登录按钮状态
-        login_btn = self.findChild(QPushButton, "login_btn")
-        if login_btn:
-            login_btn.setText("🚀 登录")
-            login_btn.setEnabled(True)
+        self.update_login_button("🚀 登录", True)
         TipWindow(self, f"❌ 登录失败: {error_msg}").show()
 
     def handle_poster_ready(self, poster):
         """处理登录成功后的poster对象"""
         self.poster = poster
+        # 更新登录按钮状态
+        self.update_login_button("✅ 已登录", False)
+        TipWindow(self, "✅ 登录成功").show()
 
     def generate_content(self):
         try:
@@ -1265,23 +1294,28 @@ class XiaohongshuUI(QMainWindow):
             title = self.title_input.text()
             content = self.subtitle_input.toPlainText()
 
+            # 更新预览按钮状态
+            self.update_preview_button("⏳ 发布中...", False)
+
             # 添加预览任务到浏览器线程
             self.browser_thread.action_queue.append({
                 'type': 'preview',
                 'title': title,
                 'content': content,
-                'images': self.images,
-                'callback': self.handle_preview_result,
-                'error_callback': self.handle_preview_error
+                'images': self.images
             })
 
         except Exception as e:
             TipWindow(self, f"❌ 预览发布失败: {str(e)}").show()
 
     def handle_preview_result(self):
+        # 恢复预览按钮状态
+        self.update_preview_button("🎯 预览发布", True)
         TipWindow(self, "🎉 文章已准备好，请在浏览器中检查并发布").show()
 
     def handle_preview_error(self, error_msg):
+        # 恢复预览按钮状态
+        self.update_preview_button("🎯 预览发布", True)
         TipWindow(self, f"❌ 预览发布失败: {error_msg}").show()
 
     def switch_page(self, index):
