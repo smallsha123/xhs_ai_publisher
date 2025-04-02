@@ -1119,6 +1119,7 @@ class XiaohongshuUI(QMainWindow):
             }
         """)
         preview_btn.clicked.connect(self.preview_post)
+        preview_btn.setEnabled(False)  # 初始状态设置为禁用
         preview_layout.addWidget(preview_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # 初始化时禁用按钮
@@ -1266,6 +1267,8 @@ class XiaohongshuUI(QMainWindow):
                     # 更新按钮状态
                     self.prev_btn.setEnabled(len(self.image_list) > 1)
                     self.next_btn.setEnabled(len(self.image_list) > 1)
+                    # 启用预览发布按钮
+                    self.update_preview_button("🎯 预览发布", True)
                 else:
                     raise Exception("图片数据无效")
             else:
@@ -1275,11 +1278,15 @@ class XiaohongshuUI(QMainWindow):
             print(f"处理图片结果时出错: {str(e)}")
             self.image_label.setPixmap(self.placeholder_photo)
             self.image_title.setText("图片加载失败")
+            # 禁用预览发布按钮
+            self.update_preview_button("🎯 预览发布", False)
             TipWindow(self, f"❌ 图片加载失败: {str(e)}").show()
 
     def handle_image_processing_error(self, error_msg):
         self.image_label.setPixmap(self.placeholder_photo)
         self.image_title.setText("图片加载失败")
+        # 禁用预览发布按钮
+        self.update_preview_button("🎯 预览发布", False)
         TipWindow(self, f"❌ 图片处理失败: {error_msg}").show()
 
     def show_current_image(self):
