@@ -1,107 +1,123 @@
-# xhs_ai_publisher
+# Xiaohongshu AI Publisher
 
-<p align="center">
-  <a href="./readme.md">简体中文</a> |
-  <a href="./readme_en.md">English</a> |
-</p>
+<div align="center">
 
-## Project Introduction
+[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
+[![Version](https://img.shields.io/badge/version-1.0.0-orange.svg)](https://github.com/yourusername/xhs_ai_publisher/releases)
 
-`xhs_ai_publisher` is an automation tool designed for publishing articles on Xiaohongshu (RED) platform. This project combines a graphical user interface with automation scripts, leveraging large language models to generate content and automating browser-based login and article publishing, aiming to streamline the content creation and publishing process.
+[简体中文](./readme.md) | [English](./readme_en.md)
 
-![Software Interface](images/ui.png)
+</div>
 
-## Key Features
+## ✨ Project Introduction
 
-- **User Login**: Login to Xiaohongshu account via phone number, with support for automatic credential saving and loading.
-- **Content Generation**: Automatically generate article titles and content using large language models.
-- **Image Management**: Automatically download and preview cover and content images.
-- **Article Preview & Publishing**: Preview generated articles in browser and proceed with final publishing.
+`xhs_ai_publisher` is a Python-based automation tool designed for Xiaohongshu content creators. This project combines a graphical user interface with automation scripts, leveraging large language models for content generation and browser automation for login and article publishing, aiming to simplify the content creation and publishing process.
 
-## Main Modules
+![UI Preview](./images/ui.png)
 
-### easy_ui.py
+## 🚀 Features
 
-This module uses `tkinter` to build the graphical user interface, providing:
+- **Smart Content Generation**: Automatically generates article titles and content using large language models
+- **Intelligent Image Processing**: Automatically downloads and previews cover images and content images
+- **Easy Login**: Supports phone number login with automatic credential saving
+- **One-Click Publishing**: Supports article preview and automatic publishing
+- **User-Friendly Interface**: Clean and intuitive graphical interface
+- **Scheduled Publishing**: Supports scheduled tasks for automatic article publishing
 
-- **Login Interface**: Phone number input for login.
-- **Content Input**: Custom content input triggering content generation.
-- **Content Generation**: Call backend API to generate article titles and content, downloading related images.
-- **Image Preview**: Display generated cover and content images.
-- **Article Preview & Publishing**: Preview and publish generated articles in browser.
+## 📁 Project Structure
 
-### write_xiaohongshu.py
+```
+xhs_ai_publisher/
+├── src/                    # Source code directory
+│   ├── core/              # Core functionality modules
+│   │   ├── processor/     # Content processing module
+│   │   ├── browser/       # Browser automation
+│   │   └── pages/         # UI pages
+│   ├── cron/              # Scheduled tasks
+│   ├── logger/            # Logging module
+│   └── config/            # Configuration module
+├── static/                # Static resources
+├── test/                  # Test directory
+├── build/                 # Build output
+├── main.py                # Main program entry
+└── requirements.txt       # Dependency list
+```
 
-This module uses `selenium` to implement Xiaohongshu platform automation, including:
+## 🛠️ Installation and Usage
 
-- **Login Function**: Automate login process, supporting session preservation via Cookies.
-- **Article Publishing**: Automatically fill in article titles, content, and upload images to complete publishing.
+### Requirements
 
-### xiaohongshu_img.py
+- Python 3.8+
+- Chrome browser
+- Other dependencies listed in requirements.txt
 
-This module handles interaction with the large language model API, generating article titles and content, and retrieving image URLs.
+### Installation Steps
 
-## Installation & Usage
+1. **Clone the repository**
+```bash
+git clone https://github.com/yourusername/xhs_ai_publisher.git
+cd xhs_ai_publisher
+```
 
-1. **Install Dependencies**
+2. **Install dependencies**
+```bash
+pip install -r requirements.txt
+```
 
-   Ensure Python 3.12 is installed, then run:
+3. **Run the program**
+```bash
+python main.py
+```
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Usage Process
 
-2. **Configure Parameters**
+1. Launch the program and log in with your phone number
+2. Set article title and author information in the title editor
+3. Enter article topic in the content input area
+4. Click "Generate Content" to create the article
+5. Preview the generated content and images
+6. Click "Preview Publish" after confirmation
 
-   Modify login phone number and other configurations in `write_xiaohongshu.py`.
-
-3. **Run Program**
-
-   Launch the user interface:
-
-   ```bash
-   python easy_ui.py
-   ```
-
-4. **Usage Flow**
-
-   - After startup, login to Xiaohongshu account with phone number.
-   - Input keywords or descriptions for content generation, click "Generate Content".
-   - Program will automatically generate article titles and content, downloading related images.
-   - Preview generated content and images, click "Preview & Publish" after confirmation.
-
-## Important Notes
-
-- Ensure `Chrome` browser is installed with corresponding `ChromeDriver` version.
-- Verification code is required during login, ensure phone is accessible.
-- Review generated content and images before publishing to ensure compliance with platform requirements.
-
-## Quick Start
+## 📦 Quick Start
 
 If you don't want to configure the development environment, you can directly download the packaged Windows executable:
 
-Baidu Netdisk Link: https://pan.baidu.com/s/1rIQ-ZgyHYN_ncVXlery4yQ
-Extraction Code: iqiy
+[Download Link](https://pan.baidu.com/s/1rIQ-ZgyHYN_ncVXlery4yQ)  
+Extraction code: iqiy
 
-This version is a standalone Windows version that requires no Python environment or Chrome browser installation - it's ready to use out of the box.
-
-Usage Steps:
-1. Download and extract the compressed package
+### Usage Instructions
+1. Download and extract the package
 2. Run `easy_ui.exe` in the folder
 3. Follow the interface prompts
 
-Notes:
-- Only supports Windows systems
-- First launch may require longer loading time
-- If antivirus software alerts, please add to trusted programs
+### Notes
+- Windows system only
+- First run may take longer to load
+- If antivirus software alerts, please add to trusted list
 
-## Contact Information
-If you have any feedback about the project, feel free to contact me on WeChat:
+## 📝 Important Notes
+
+- Ensure Chrome browser is installed with the corresponding ChromeDriver version
+- Phone verification code is required during login, please ensure your phone is accessible
+- Review generated content and images before publishing
+- Regular backup of login credentials and configuration files is recommended
+
+## 🤝 Contributing
+
+Issues and Pull Requests are welcome to help improve the project.
+
+## 📞 Contact
 
 ### WeChat
 <img src="images/wechat_qr.jpg" width="200" height="200">
 
-Also, follow my official WeChat account for more information:
-
 ### Official Account
 <img src="images/mp_qr.jpg" width="200" height="200">
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ for Xiaohongshu content creators</sub>
+</div>
