@@ -1,15 +1,13 @@
 import base64
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from io import BytesIO
-from PIL import Image
 
 import requests
 from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton,
                              QScrollArea, QTextEdit, QVBoxLayout, QWidget,
-                             QGridLayout, QScrollArea)
+                             QScrollArea)
 from PyQt6.QtCore import Qt, QByteArray
-from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtGui import QPixmap
 
 from src.core.alert import TipWindow
 

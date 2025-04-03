@@ -6,7 +6,7 @@ import os
 import sys
 import logging
 from PyQt6.QtWidgets import QInputDialog, QLineEdit
-from PyQt6.QtCore import QObject, pyqtSignal, QTimer, QMetaObject, Qt, QThread, pyqtSlot
+from PyQt6.QtCore import QObject, pyqtSignal, QMetaObject, Qt, QThread, pyqtSlot
 from PyQt6.QtWidgets import QApplication
 log_path = os.path.expanduser('~/Desktop/xhsai_error.log')
 logging.basicConfig(filename=log_path, level=logging.DEBUG)

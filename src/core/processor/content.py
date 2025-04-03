@@ -1,5 +1,5 @@
 import json
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 
 import requests
 

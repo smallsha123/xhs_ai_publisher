@@ -19,7 +19,6 @@ from src.logger.logger import Logger
 log_path = os.path.expanduser('~/Desktop/xhsai_error.log')
 logging.basicConfig(filename=log_path, level=logging.DEBUG)
 
-
 class XiaohongshuUI(QMainWindow):
     def __init__(self):
         super().__init__()

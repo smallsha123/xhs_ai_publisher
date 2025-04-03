@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                              QProgressBar, QGraphicsView, QGraphicsScene,
                              QGraphicsDropShadowEffect)
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QColor, QPainter, QPen, QBrush, QIcon
+from PyQt6.QtGui import QColor, QPainter, QPen, QBrush
 from PyQt6.QtCore import QEvent
 
 
