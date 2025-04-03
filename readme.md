@@ -53,6 +53,12 @@ xhs_ai_publisher/
 - Chrome 浏览器
 - 其他依赖见 requirements.txt
 
+## 📋 待办事项
+
+- **内容库**：计划添加内容库功能，支持保存和管理多种类型的内容素材
+- **模板库**：开发模板库系统，提供多种预设模板，方便快速创建不同风格的文章
+
+
 ### 安装步骤
 
 1. **克隆项目**
@@ -110,13 +116,13 @@ python main.py
 
 ## 📞 联系方式
 
-### 微信交流
+### 可以加我微信，拉进微信群交流，如果有任何问题或者需求，都可以进群沟通
 <img src="images/wechat_qr.jpg" width="200" height="200">
 
 ### 公众号
 <img src="images/mp_qr.jpg" width="200" height="200">
 
----
+---   
 
 <div align="center">
   <sub>Built with ❤️ for Xiaohongshu content creators</sub>
