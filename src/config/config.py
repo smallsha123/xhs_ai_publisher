@@ -21,8 +21,8 @@ class Config:
             "title_edit": {
                 "author": "小红书",
                 "title": "测试标题",
-            }
-
+            },
+            "phone": "18888888888",
         }
         self.load_config()
 
@@ -55,6 +55,17 @@ class Config:
         """更新app配置"""
         self.config['app'] = app
         self.save_config()
+        
+        
+    def update_phone_config(self, phone):
+        """更新手机号配置"""
+        self.config['phone'] = phone
+        self.save_config()
+        
+        
+    def get_phone_config(self):
+        """获取手机号配置"""
+        return self.config.get('phone', self.default_config['phone'])
 
     def get_title_config(self):
         """获取邮箱配置"""

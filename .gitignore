@@ -5,3 +5,4 @@ output
 build/dist
 build/output
 xiaohongshu_cookies.json
+.vscode
