@@ -27,6 +27,7 @@ class SettingsPage(QWidget):
             font-size: 14pt;
             color: #2c3e50;
             font-weight: bold;
+            border:none;
         """)
         layout.addWidget(version_label)
         layout.addStretch()
