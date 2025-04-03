@@ -1,10 +1,15 @@
 # xhs_ai_publisher
 
+<p align="center">
+  <a href="./readme.md">简体中文</a> |
+  <a href="./readme_en.md">English</a> |
+</p>
+
 ## Project Introduction
 
 `xhs_ai_publisher` is an automation tool designed for publishing articles on Xiaohongshu (RED) platform. This project combines a graphical user interface with automation scripts, leveraging large language models to generate content and automating browser-based login and article publishing, aiming to streamline the content creation and publishing process.
 
-![Software Interface](8ddacbc223b651db15d2b1a66f6e277.png)
+![Software Interface](images/ui.png)
 
 ## Key Features
 
@@ -70,3 +75,33 @@ This module handles interaction with the large language model API, generating ar
 - Ensure `Chrome` browser is installed with corresponding `ChromeDriver` version.
 - Verification code is required during login, ensure phone is accessible.
 - Review generated content and images before publishing to ensure compliance with platform requirements.
+
+## Quick Start
+
+If you don't want to configure the development environment, you can directly download the packaged Windows executable:
+
+Baidu Netdisk Link: https://pan.baidu.com/s/1rIQ-ZgyHYN_ncVXlery4yQ
+Extraction Code: iqiy
+
+This version is a standalone Windows version that requires no Python environment or Chrome browser installation - it's ready to use out of the box.
+
+Usage Steps:
+1. Download and extract the compressed package
+2. Run `easy_ui.exe` in the folder
+3. Follow the interface prompts
+
+Notes:
+- Only supports Windows systems
+- First launch may require longer loading time
+- If antivirus software alerts, please add to trusted programs
+
+## Contact Information
+If you have any feedback about the project, feel free to contact me on WeChat:
+
+### WeChat
+<img src="images/wechat_qr.jpg" width="200" height="200">
+
+Also, follow my official WeChat account for more information:
+
+### Official Account
+<img src="images/mp_qr.jpg" width="200" height="200">

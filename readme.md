@@ -1,15 +1,15 @@
+# xhs_ai_publisher
+
 <p align="center">
   <a href="./readme.md">简体中文</a> |
   <a href="./readme_en.md">English</a> |
 </p>
 
-# xhs_ai_publisher
-
 ## 项目简介
 
 `xhs_ai_publisher` 是一个自动化工具，专为在小红书平台上发布文章而设计。该项目结合了图形用户界面与自动化脚本，利用大模型技术生成内容，并通过浏览器自动登录和发布文章，旨在简化内容创作与发布流程。
 
-![软件界面效果](./images/8ddacbc223b651db15d2b1a66f6e277.png)
+![软件界面效果](./images/ui.png)
 
 ## 功能特点
 
@@ -95,12 +95,13 @@
 - 首次运行可能需要等待较长时间加载
 - 如遇到杀毒软件报警，请添加信任
 
-
 ## 联系方式
 如果对项目有任何意见，欢迎加我微信交流：
+
 ### 微信
 <img src="images/wechat_qr.jpg" width="200" height="200">
 
 同时，欢迎关注我的公众号，获取更多信息：
+
 ### 公众号
 <img src="images/mp_qr.jpg" width="200" height="200">
