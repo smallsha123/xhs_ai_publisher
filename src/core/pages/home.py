@@ -5,7 +5,6 @@ from PyQt6.QtGui import QColor, QPixmap
 from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit,
                              QPushButton, QTextEdit, QVBoxLayout, QWidget)
 
-from src.config.constants import VERSION
 from src.core.alert import TipWindow
 from src.core.processor.content import ContentGeneratorThread
 from src.core.processor.img import ImageProcessorThread

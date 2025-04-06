@@ -253,7 +253,8 @@ class XiaohongshuUI(QMainWindow):
             self.images = []
             self.image_list = []
             self.current_image_index = 0
-
+            # 关闭本机8000端口
+            self.stop_downloader()
             # 调用父类的closeEvent
             super().closeEvent(event)
 
@@ -261,8 +262,6 @@ class XiaohongshuUI(QMainWindow):
             print(f"关闭应用程序时出错: {str(e)}")
             # 即使出错也强制关闭
             event.accept()
-            
-            
             
     def start_downloader_thread(self):
         """启动下载器线程"""
@@ -277,7 +276,12 @@ class XiaohongshuUI(QMainWindow):
                     
                 if os.path.exists(downloader_path):
                     try:
-                        subprocess.Popen(f"{downloader_path} server", shell=True)
+                        # 重定向标准输出和错误输出到 /dev/null 或 NUL
+                        if sys.platform == "win32":
+                            # 使用 start /b 命令在后台运行,避免弹出命令行窗口
+                            subprocess.Popen(f"start /b {downloader_path} server", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        else:
+                            subprocess.Popen(f"{downloader_path} server > /dev/null 2>&1", shell=True)
                         self.logger.success("下载器启动成功") 
                     except Exception as e:
                         self.logger.error(f"下载器启动失败: {str(e)}")
@@ -290,6 +294,49 @@ class XiaohongshuUI(QMainWindow):
             
         except Exception as e:
             self.logger.error(f"启动下载器线程时出错: {str(e)}")
+            
+    def stop_downloader(self):
+        """关闭下载器"""
+        try:
+            if sys.platform == "win32":
+                # Windows系统使用netstat和taskkill命令
+                import subprocess
+                cmd = 'netstat -ano | findstr :8000'
+                try:
+                    result = subprocess.check_output(cmd, shell=True).decode()
+                    if result:
+                        # 提取PID
+                        pid = result.strip().split()[-1]
+                        kill_cmd = f'taskkill /F /PID {pid}'
+                        subprocess.check_output(kill_cmd, shell=True)
+                        self.logger.success("Windows下载器关闭成功")
+                except Exception as e:
+                    self.logger.error(f"Windows下载器关闭失败: {str(e)}")
+            else:
+                # Linux/Mac系统使用lsof和ps命令
+                import subprocess
+                try:
+                    # 先尝试使用ps命令查找XhsAiDownloader进程
+                    ps_cmd = "ps aux | grep XhsAiDownloader | grep -v grep | awk '{print $2}'"
+                    pids = subprocess.check_output(ps_cmd, shell=True).decode().strip().split('\n')
+                    
+                    if not pids or not pids[0]:
+                        # 如果ps命令没找到,再尝试用lsof查找8000端口
+                        cmd = "lsof -i :8000 -t"
+                        pids = subprocess.check_output(cmd, shell=True).decode().strip().split('\n')
+                        
+                    if pids and pids[0]:
+                        # 终止所有相关进程
+                        kill_cmd = f"kill -9 {' '.join(pids)}"
+                        subprocess.check_output(kill_cmd, shell=True)
+                        self.logger.success("Mac下载器关闭成功")
+                    else:
+                        self.logger.warning("未找到需要关闭的下载器进程")
+                except Exception as e:
+                    self.logger.error(f"Mac下载器关闭失败: {str(e)}")
+                    
+        except Exception as e:
+            self.logger.error(f"关闭下载器时出错: {str(e)}")
 
 
 if __name__ == "__main__":

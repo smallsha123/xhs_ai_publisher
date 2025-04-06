@@ -1,6 +1,7 @@
 import base64
 import sys
 import os
+import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -8,7 +9,7 @@ from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton,
                              QScrollArea, QTextEdit, QVBoxLayout, QWidget,
                              QScrollArea, QGridLayout, QFileDialog)
 from PyQt6.QtCore import Qt, QByteArray, QThread, pyqtSignal
-from PyQt6.QtGui import QPixmap, QColor
+from PyQt6.QtGui import QPixmap
 
 from src.core.alert import TipWindow
 
@@ -17,13 +18,20 @@ class VideoProcessThread(QThread):
     """视频处理线程"""
     finished = pyqtSignal(dict)  # 处理完成信号
     error = pyqtSignal(str)      # 处理错误信号
+    progress = pyqtSignal(str)   # 进度信号
 
     def __init__(self, url):
         super().__init__()
         self.url = url
+        self.loop = None
 
     def run(self):
         try:
+            # 创建新的事件循环
+            self.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.loop)
+            
+            self.progress.emit("正在解析视频链接...")
             # 调用API
             server = "http://127.0.0.1:8000/xhs/"
             data = {
@@ -33,16 +41,22 @@ class VideoProcessThread(QThread):
             }
 
             # 发送请求并处理结果
+            self.progress.emit("正在获取视频信息...")
             response = requests.post(server, json=data)
             result = response.json()
 
             if 'data' in result:
+                self.progress.emit("解析完成，正在处理数据...")
                 self.finished.emit(result['data'])
             else:
                 raise Exception(result.get('message', '未知错误'))
 
         except Exception as e:
             self.error.emit(str(e))
+        finally:
+            # 关闭事件循环
+            if self.loop:
+                self.loop.close()
 
 class DownloadThread(QThread):
     """下载线程"""
@@ -114,6 +128,7 @@ class ToolsPage(QWidget):
         self.download_thread = None
         self.batch_download_thread = None
         self.video_process_thread = None
+        self.progress_label = None  # 添加进度标签属性
 
     def setup_ui(self):
         """设置UI"""
@@ -244,6 +259,19 @@ class ToolsPage(QWidget):
         process_btn.clicked.connect(self.process_video)
         watermark_layout.addWidget(process_btn)
 
+        # 在process_btn下方添加进度标签
+        self.progress_label = QLabel("")
+        self.progress_label.setStyleSheet("""
+            QLabel {
+                color: #666666;
+                font-size: 12px;
+                margin-top: 4px;
+                border: none;
+                padding: 0;
+            }
+        """)
+        watermark_layout.addWidget(self.progress_label)
+
         # 创建结果展示区域
         result_frame = QFrame()
         result_frame.setStyleSheet("""
@@ -322,20 +350,52 @@ class ToolsPage(QWidget):
                 TipWindow(self.parent, "❌ 请输入视频URL").show()
                 return
 
-            # 更新按钮状态
+            # 更新按钮状态和进度提示
             self.process_btn.setText("⏳ 处理中...")
             self.process_btn.setEnabled(False)
+            if self.progress_label is not None:
+                self.progress_label.setText("准备处理...")
+                self.progress_label.setStyleSheet("""
+                    QLabel {
+                        color: #4a90e2;
+                        font-size: 12px;
+                        margin-top: 4px;
+                        border: none;
+                        padding: 0;
+                    }
+                """)
 
             # 创建并启动视频处理线程
             self.video_process_thread = VideoProcessThread(url)
             self.video_process_thread.finished.connect(self.handle_video_process_result)
             self.video_process_thread.error.connect(self.handle_video_process_error)
+            self.video_process_thread.progress.connect(self.handle_video_process_progress)
             self.video_process_thread.start()
 
         except Exception as e:
-            self.process_btn.setText("⚡ 开始处理")
-            self.process_btn.setEnabled(True)
+            self.reset_ui_state()
             TipWindow(self.parent, f"❌ 处理失败: {str(e)}").show()
+
+    def handle_video_process_progress(self, message):
+        """处理进度更新"""
+        if self.progress_label is not None:
+            self.progress_label.setText(message)
+
+    def reset_ui_state(self):
+        """重置UI状态"""
+        self.process_btn.setText("⚡ 开始处理")
+        self.process_btn.setEnabled(True)
+        if self.progress_label is not None:
+            self.progress_label.setText("")
+            self.progress_label.setStyleSheet("""
+                QLabel {
+                    color: #666666;
+                    font-size: 12px;
+                    margin-top: 4px;
+                    border: none;
+                    padding: 0;
+                }
+            """)
 
     def handle_video_process_result(self, data):
         """处理视频解析结果"""
@@ -624,14 +684,12 @@ class ToolsPage(QWidget):
             TipWindow(self.parent, f"❌ 处理失败: {str(e)}").show()
 
         finally:
-            # 恢复按钮状态
-            self.process_btn.setText("⚡ 开始处理")
-            self.process_btn.setEnabled(True)
+            # 重置UI状态
+            self.reset_ui_state()
 
     def handle_video_process_error(self, error_message):
         """处理视频解析错误"""
-        self.process_btn.setText("⚡ 开始处理")
-        self.process_btn.setEnabled(True)
+        self.reset_ui_state()
         TipWindow(self.parent, f"❌ 处理失败: {error_message}").show()
 
     def clear_result_area(self):
