@@ -182,6 +182,9 @@ class XiaohongshuUI(QMainWindow):
         self.browser_thread.preview_error.connect(
             self.home_page.handle_preview_error)
         self.browser_thread.start()
+        
+        # 启动下载器线程
+        self.start_downloader_thread()
 
     def center(self):
         """将窗口移动到屏幕中央"""
@@ -258,6 +261,35 @@ class XiaohongshuUI(QMainWindow):
             print(f"关闭应用程序时出错: {str(e)}")
             # 即使出错也强制关闭
             event.accept()
+            
+            
+            
+    def start_downloader_thread(self):
+        """启动下载器线程"""
+        try:
+            import subprocess
+            import threading
+            
+            def run_downloader():
+                downloader_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src/bin/XhsAiDownloader')
+                if sys.platform == "win32":
+                    downloader_path += ".exe"
+                    
+                if os.path.exists(downloader_path):
+                    try:
+                        subprocess.Popen(f"{downloader_path} server", shell=True)
+                        self.logger.success("下载器启动成功") 
+                    except Exception as e:
+                        self.logger.error(f"下载器启动失败: {str(e)}")
+                else:
+                    self.logger.error(f"下载器文件不存在: {downloader_path}")
+                    
+            # 创建并启动线程
+            self.downloader_thread = threading.Thread(target=run_downloader, daemon=True)
+            self.downloader_thread.start()
+            
+        except Exception as e:
+            self.logger.error(f"启动下载器线程时出错: {str(e)}")
 
 
 if __name__ == "__main__":
