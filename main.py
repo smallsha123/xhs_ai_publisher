@@ -333,7 +333,8 @@ class XiaohongshuUI(QMainWindow):
                     else:
                         self.logger.warning("未找到需要关闭的下载器进程")
                 except Exception as e:
-                    self.logger.error(f"Mac下载器关闭失败: {str(e)}")
+                    pass
+                    # self.logger.error(f"Mac下载器关闭失败: {str(e)}")
                     
         except Exception as e:
             self.logger.error(f"关闭下载器时出错: {str(e)}")
