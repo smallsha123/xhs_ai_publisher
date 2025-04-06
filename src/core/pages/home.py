@@ -79,7 +79,8 @@ class HomePage(QWidget):
         login_controls.addWidget(QLabel("📱 手机号:"))
         self.phone_input = QLineEdit()
         self.phone_input.setFixedWidth(180)
-        self.phone_input.setText("13060178738")
+        self.phone_input.setText(self.parent.config.get_phone_config())
+        self.phone_input.textChanged.connect(self.update_phone_config)
         login_controls.addWidget(self.phone_input)
 
         # 登录按钮
@@ -622,9 +623,9 @@ class HomePage(QWidget):
     def update_title_config(self):
         """更新标题配置"""
         try:
-            title_config = self.parent.config.get_title_config()
-            title_config['title'] = self.header_input.text()
-            self.parent.config.update_title_config(title_config['title'])
+            # 使用用户输入的新标题
+            new_title = self.header_input.text()
+            self.parent.config.update_title_config(new_title)
         except Exception as e:
             self.parent.logger.error(f"更新标题配置失败: {str(e)}")
 
@@ -636,3 +637,11 @@ class HomePage(QWidget):
             self.parent.config.update_author_config(title_config['author'])
         except Exception as e:
             self.parent.logger.error(f"更新作者配置失败: {str(e)}")
+
+    def update_phone_config(self):
+        """更新手机号配置"""
+        try:
+            new_phone = self.phone_input.text()
+            self.parent.config.update_phone_config(new_phone)
+        except Exception as e:
+            self.parent.logger.error(f"更新手机号配置失败: {str(e)}")

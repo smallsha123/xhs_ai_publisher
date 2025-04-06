@@ -32,18 +32,39 @@ class Config:
             if os.path.exists(self.config_file):
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     self.config = json.load(f)
+                # 确保所有默认配置项都存在
+                self._ensure_default_config()
             else:
                 self.config = self.default_config
                 self.save_config()
         except Exception as e:
             print(f"加载配置失败: {str(e)}")
             self.config = self.default_config
+            self.save_config()
+
+    def _ensure_default_config(self):
+        """确保所有默认配置项都存在"""
+        # 检查并添加缺失的顶级配置项
+        for key, value in self.default_config.items():
+            if key not in self.config:
+                self.config[key] = value
+        
+        # 检查并添加缺失的嵌套配置项
+        if 'title_edit' in self.config:
+            for key, value in self.default_config['title_edit'].items():
+                if key not in self.config['title_edit']:
+                    self.config['title_edit'][key] = value
+        else:
+            self.config['title_edit'] = self.default_config['title_edit']
+        
+        # 保存更新后的配置
+        self.save_config()
 
     def save_config(self):
         """保存配置"""
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(self.config, f, indent=4)
+                json.dump(self.config, f, indent=4, ensure_ascii=False)
         except Exception as e:
             print(f"保存配置失败: {str(e)}")
 
@@ -56,27 +77,29 @@ class Config:
         self.config['app'] = app
         self.save_config()
         
+    def get_phone_config(self):
+        """获取手机号配置"""
+        return self.config.get('phone', self.default_config['phone'])
         
     def update_phone_config(self, phone):
         """更新手机号配置"""
         self.config['phone'] = phone
         self.save_config()
-        
-        
-    def get_phone_config(self):
-        """获取手机号配置"""
-        return self.config.get('phone', self.default_config['phone'])
 
     def get_title_config(self):
-        """获取邮箱配置"""
+        """获取标题配置"""
         return self.config.get('title_edit', self.default_config['title_edit'])
 
     def update_title_config(self, title):
-        """更新邮箱配置"""
+        """更新标题配置"""
+        if 'title_edit' not in self.config:
+            self.config['title_edit'] = {}
         self.config['title_edit']['title'] = title
         self.save_config()
 
     def update_author_config(self, author):
-        """更新邮箱配置"""
-        self.config['title_edit'][author] = author
+        """更新作者配置"""
+        if 'title_edit' not in self.config:
+            self.config['title_edit'] = {}
+        self.config['title_edit']['author'] = author
         self.save_config()
