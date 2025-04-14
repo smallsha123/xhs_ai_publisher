@@ -23,6 +23,7 @@ class Config:
                 "title": "测试标题",
             },
             "phone": "18888888888",
+            "default_group": 1
         }
         self.load_config()
 
@@ -102,4 +103,14 @@ class Config:
         if 'title_edit' not in self.config:
             self.config['title_edit'] = {}
         self.config['title_edit']['author'] = author
+        self.save_config()
+
+
+    def get_default_group(self):
+        """获取默认分组"""
+        return self.config.get('default_group', self.default_config['default_group'])
+
+    def update_default_group(self, group):
+        """更新默认分组"""
+        self.config['default_group'] = group
         self.save_config()

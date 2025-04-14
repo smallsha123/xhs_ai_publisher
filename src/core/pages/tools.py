@@ -462,7 +462,11 @@ class ToolsPage(QWidget):
     def handle_video_process_result(self, data):
         """处理视频解析结果"""
         try:
-            self.parent.pic_manager.insert_pic(data['作品链接'], str(data), 1, int(time.time()))
+            # 获取当前选中的分组ID
+            current_group_id = self.parent.config.get_default_group()
+            # 将数据保存到数据库，使用当前选中的分组ID
+            self.parent.pic_manager.insert_pic(data['作品链接'], str(data), current_group_id, int(time.time()))
+            
             # 清空之前的结果
             self.clear_result_area()
 
@@ -1022,20 +1026,25 @@ class ToolsPage(QWidget):
         # 获取所有分组
         groups = self.parent.group_manager.get_all_groups()
         
+        # 获取当前选中的分组ID
+        current_group_id = self.parent.config.get_default_group()
+        
         # 添加标签
         for group in groups:
             # 创建标签容器
             tag_widget = QFrame()
-            tag_widget.setStyleSheet("""
-                QFrame {
-                    background-color: #f0f2f5;
+            # 设置样式，如果是当前选中的分组则使用不同的背景色
+            is_selected = str(group[0]) == str(current_group_id)
+            tag_widget.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {'#e3f2fd' if is_selected else '#f0f2f5'};
                     border-radius: 15px;
                     padding: 5px 15px;
                     margin: 2px;
-                }
-                QFrame:hover {
-                    background-color: #e6e8eb;
-                }
+                }}
+                QFrame:hover {{
+                    background-color: {'#bbdefb' if is_selected else '#e6e8eb'};
+                }}
             """)
             
             # 创建水平布局
@@ -1096,6 +1105,9 @@ class ToolsPage(QWidget):
             # 设置固定高度但不设置固定宽度
             tag_widget.setFixedHeight(30)
             
+            # 添加鼠标事件过滤器
+            tag_widget.mousePressEvent = lambda e, g=group: self.on_group_clicked(g)
+            
             # 添加到流式布局
             self.tags_flow_layout.addWidget(tag_widget)
 
@@ -1132,6 +1144,16 @@ class ToolsPage(QWidget):
                 self.load_groups()
             except Exception as e:
                 print(f"删除分组失败: {e}")
+
+    def on_group_clicked(self, group):
+        """处理分组点击事件"""
+        try:
+            # 保存选中的分组ID到配置
+            self.parent.config.update_default_group(group[0])
+            # 刷新分组列表以更新视觉效果
+            self.load_groups()
+        except Exception as e:
+            print(f"保存分组选择失败: {e}")
 
 class FlowLayout(QLayout):
     """流式布局类"""
