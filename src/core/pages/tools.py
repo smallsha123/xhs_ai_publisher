@@ -137,6 +137,10 @@ class ToolsPage(QWidget):
     def init_groups(self):
         """初始化分组列表，在父类group_manager初始化完成后调用"""
         self.load_groups()
+        # 获取当前选中的分组ID并加载其内容
+        current_group_id = self.parent.config.get_default_group()
+        if current_group_id:
+            self.load_group_content(current_group_id)
 
     def setup_ui(self):
         """设置UI"""
@@ -184,34 +188,41 @@ class ToolsPage(QWidget):
             QFrame#groupFrame {
                 background-color: white;
                 border-radius: 10px;
-                padding: 15px;
-                margin: 10px;
+                padding: 12px;
+                margin: 0;
             }
         """)
         group_layout = QVBoxLayout(group_frame)
-        group_layout.setSpacing(15)
+        group_layout.setSpacing(10)
+        group_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 创建标题栏布局
+        title_layout = QHBoxLayout()
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(10)
         
         # 分组管理标题
         group_title = QLabel("分组管理")
-        group_title.setStyleSheet("font-size: 16px; font-weight: bold;border: none;")
-        group_layout.addWidget(group_title)
-        
-        # 标签流式布局容器
-        self.tags_flow_widget = QWidget()
-        self.tags_flow_layout = FlowLayout(self.tags_flow_widget)
-        self.tags_flow_layout.setSpacing(10)
-        group_layout.addWidget(self.tags_flow_widget)
+        group_title.setStyleSheet("""
+            font-size: 16pt;
+            font-weight: bold;
+            color: #1a1a1a;
+            border: none;
+            padding: 0;
+        """)
+        title_layout.addWidget(group_title)
         
         # 添加分组按钮
         add_group_btn = QPushButton("➕ 添加分组")
+        add_group_btn.setFixedHeight(24)  # 设置固定高度
         add_group_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4a90e2;
                 color: white;
                 border: none;
                 border-radius: 4px;
-                padding: 8px;
-                font-size: 14px;
+                padding: 0 8px;
+                font-size: 12px;
                 font-weight: bold;
             }
             QPushButton:hover {
@@ -219,7 +230,17 @@ class ToolsPage(QWidget):
             }
         """)
         add_group_btn.clicked.connect(self.show_add_group_dialog)
-        group_layout.addWidget(add_group_btn)
+        title_layout.addWidget(add_group_btn)
+        title_layout.addStretch()  # 添加弹性空间，使按钮靠左
+        
+        # 将标题栏添加到分组布局
+        group_layout.addLayout(title_layout)
+        
+        # 标签流式布局容器
+        self.tags_flow_widget = QWidget()
+        self.tags_flow_layout = FlowLayout(self.tags_flow_widget)
+        self.tags_flow_layout.setSpacing(10)
+        group_layout.addWidget(self.tags_flow_widget)
         
         # 将分组管理区域添加到内容布局
         content_layout.addWidget(group_frame)
@@ -334,14 +355,15 @@ class ToolsPage(QWidget):
         """)
         watermark_layout.addWidget(self.progress_label)
 
-        # 创建结果展示区域
-        result_frame = QFrame()
-        result_frame.setStyleSheet("""
+        # 创建内容展示区域
+        self.result_frame = QFrame()
+        self.result_frame.setStyleSheet("""
             QFrame {
                 margin-top: 8px;
                 padding: 12px;
                 background-color: white;
                 border: none;
+                border-radius: 10px;
             }
             QLabel {
                 font-family: """ + ("Menlo" if sys.platform == "darwin" else "Consolas") + """;
@@ -357,15 +379,12 @@ class ToolsPage(QWidget):
                 border: none;
             }
         """)
-        result_layout = QVBoxLayout(result_frame)
-        result_layout.setSpacing(2)  # 减小组件间距
-        result_layout.setContentsMargins(0, 0, 0, 0)
+        self.result_layout = QVBoxLayout(self.result_frame)
+        self.result_layout.setSpacing(2)  # 减小组件间距
+        self.result_layout.setContentsMargins(0, 0, 0, 0)
         
-        # 保存为类属性
-        self.result_layout = result_layout
-
         # 添加结果标题
-        result_title = QLabel("📋 解析结果")
+        result_title = QLabel("📋 内容展示")
         result_title.setStyleSheet("""
             font-size: 16pt;
             font-weight: bold;
@@ -373,8 +392,8 @@ class ToolsPage(QWidget):
             border: none;
             margin-bottom: 5px;  /* 减小下边距 */
         """)
-        result_layout.addWidget(result_title)
-
+        self.result_layout.addWidget(result_title)
+        
         # 创建结果文本展示区
         self.result_text = QTextEdit()
         self.result_text.setReadOnly(True)
@@ -389,10 +408,10 @@ class ToolsPage(QWidget):
             }
         """)
         self.result_text.setMinimumHeight(300)  # 减小最小高度
-        result_layout.addWidget(self.result_text)
-
-        # 将结果区域添加到水印工具布局中
-        watermark_layout.addWidget(result_frame)
+        self.result_layout.addWidget(self.result_text)
+        
+        # 将内容展示区域添加到水印工具布局中
+        watermark_layout.addWidget(self.result_frame)
 
         # 将水印工具添加到内容布局
         content_layout.addWidget(watermark_frame)
@@ -484,13 +503,13 @@ class ToolsPage(QWidget):
             preview_layout = QVBoxLayout(preview_frame)
             preview_layout.setSpacing(5)
             preview_layout.setContentsMargins(0, 0, 0, 0)
-
+            
             # 添加预览标题和按钮区域
             title_bar = QWidget()
             title_layout = QHBoxLayout(title_bar)
             title_layout.setContentsMargins(0, 0, 0, 4)
             title_layout.setSpacing(4)
-
+            
             title_label = QLabel("图片内容")
             title_label.setStyleSheet("""
                 font-size: 14pt;
@@ -500,43 +519,44 @@ class ToolsPage(QWidget):
                 padding: 0;
             """)
             title_layout.addWidget(title_label)
-
+            
             title_layout.addStretch()
-
+            
             # 添加下载全部按钮
-            download_btn = QPushButton("⬇️ 下载全部")
-            download_btn.setStyleSheet("""
-                QPushButton {
-                    padding: 4px 8px;
-                    font-size: 12px;
-                    background-color: #4a90e2;
-                    color: white;
-                    border: none;
-                    border-radius: 4px;
-                }
-                QPushButton:hover {
-                    background-color: #357abd;
-                }
-            """)
-            download_btn.clicked.connect(lambda: self.download_all_images(data['下载地址']))
-            title_layout.addWidget(download_btn)
-
+            if '下载地址' in data and data['下载地址']:
+                download_btn = QPushButton("⬇️ 下载全部")
+                download_btn.setStyleSheet("""
+                    QPushButton {
+                        padding: 4px 8px;
+                        font-size: 12px;
+                        background-color: #4a90e2;
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                    }
+                    QPushButton:hover {
+                        background-color: #357abd;
+                    }
+                """)
+                download_btn.clicked.connect(lambda: self.download_all_images(data['下载地址']))
+                title_layout.addWidget(download_btn)
+            
             preview_layout.addWidget(title_bar)
-
+            
             # 创建图片容器
             images_widget = QWidget()
             images_layout = QVBoxLayout(images_widget)
             images_layout.setSpacing(4)
             images_layout.setContentsMargins(0, 0, 0, 0)
-
+            
             # 创建图片网格容器
             grid_widget = QWidget()
             grid_layout = QGridLayout(grid_widget)
             grid_layout.setSpacing(4)
             grid_layout.setContentsMargins(0, 0, 0, 0)
-
+            
             # 加载图片
-            if '下载地址' in data:
+            if '下载地址' in data and data['下载地址']:
                 row = 0
                 col = 0
                 for url in data['下载地址']:
@@ -554,66 +574,65 @@ class ToolsPage(QWidget):
                         card_layout = QVBoxLayout(image_card)
                         card_layout.setContentsMargins(0, 0, 0, 0)
                         card_layout.setSpacing(0)
-
+                        
                         # 加载图片
                         response = requests.get(url, headers={
                             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                             'Referer': 'https://www.xiaohongshu.com/'
                         })
                         image_data = response.content
-
+                        
                         # 创建QPixmap并设置图片
                         pixmap = QPixmap()
                         byte_array = QByteArray(image_data)
                         pixmap.loadFromData(byte_array)
-
-                        if pixmap.isNull():
-                            raise Exception("图片加载失败")
-
-                        # 调整图片大小并保持比例
-                        image_label = QLabel()
-                        image_label.setFixedSize(150, 200)
-                        image_label.setStyleSheet("""
-                            QLabel {
-                                border: none;
-                                padding: 0;
-                                margin: 0;
-                                background: transparent;
-                            }
-                        """)
-                        scaled_pixmap = pixmap.scaled(150, 200, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                        image_label.setPixmap(scaled_pixmap)
-                        image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                        card_layout.addWidget(image_label)
-
-                        # 添加下载按钮
-                        download_link = QPushButton("下载图片")
-                        download_link.setFixedHeight(20)
-                        download_link.setCursor(Qt.CursorShape.PointingHandCursor)
-                        download_link.setStyleSheet("""
-                            QPushButton {
-                                color: #4a90e2;
-                                border: none;
-                                background: none;
-                                text-align: center;
-                                padding: 0;
-                                margin: 0;
-                                font-size: 12px;
-                            }
-                            QPushButton:hover {
-                                text-decoration: underline;
-                            }
-                        """)
-                        download_link.clicked.connect(lambda checked, u=url, i=col+1: self.download_image(u, f"图片_{i}.jpg"))
-                        card_layout.addWidget(download_link)
-
-                        # 添加到网格布局
-                        grid_layout.addWidget(image_card, row, col)
-                        col += 1
-                        if col >= 4:  # 每行最多显示4个图片
-                            col = 0
-                            row += 1
-
+                        
+                        if not pixmap.isNull():
+                            # 调整图片大小并保持比例
+                            image_label = QLabel()
+                            image_label.setFixedSize(150, 200)
+                            image_label.setStyleSheet("""
+                                QLabel {
+                                    border: none;
+                                    padding: 0;
+                                    margin: 0;
+                                    background: transparent;
+                                }
+                            """)
+                            scaled_pixmap = pixmap.scaled(150, 200, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                            image_label.setPixmap(scaled_pixmap)
+                            image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                            card_layout.addWidget(image_label)
+                            
+                            # 添加下载按钮
+                            download_link = QPushButton("下载图片")
+                            download_link.setFixedHeight(20)
+                            download_link.setCursor(Qt.CursorShape.PointingHandCursor)
+                            download_link.setStyleSheet("""
+                                QPushButton {
+                                    color: #4a90e2;
+                                    border: none;
+                                    background: none;
+                                    text-align: center;
+                                    padding: 0;
+                                    margin: 0;
+                                    font-size: 12px;
+                                }
+                                QPushButton:hover {
+                                    text-decoration: underline;
+                                }
+                            """)
+                            download_link.clicked.connect(lambda checked, u=url, i=col+1: self.download_image(u, f"图片_{i}.jpg"))
+                            card_layout.addWidget(download_link)
+                            
+                            # 添加到网格布局
+                            grid_layout.addWidget(image_card, row, col)
+                            
+                            col += 1
+                            if col >= 4:  # 每行最多显示4个图片
+                                col = 0
+                                row += 1
+                                
                     except Exception as e:
                         print(f"加载图片失败: {str(e)}")
             else:
@@ -626,13 +645,13 @@ class ToolsPage(QWidget):
                     margin: 0;
                 """)
                 grid_layout.addWidget(no_image_label, 0, 0)
-
+            
             images_layout.addWidget(grid_widget)
             preview_layout.addWidget(images_widget)
-
+            
             # 将预览区域添加到主布局
             self.result_layout.addWidget(preview_frame)
-
+            
             # 添加作品信息
             self.add_section("🎥 作品信息", [
                 ("标题", data.get('作品标题', 'N/A')),
@@ -640,13 +659,13 @@ class ToolsPage(QWidget):
                 ("类型", data.get('作品类型', 'N/A')),
                 ("发布时间", data.get('发布时间', 'N/A'))
             ])
-
+            
             # 添加创作者信息
             self.add_section("👤 创作者信息", [
                 ("昵称", data.get('作者昵称', 'N/A')),
                 ("ID", data.get('作者ID', 'N/A'))
             ])
-
+            
             # 添加数据统计
             stats_frame = QFrame()
             stats_frame.setStyleSheet("""
@@ -660,37 +679,37 @@ class ToolsPage(QWidget):
             stats_layout = QHBoxLayout(stats_frame)
             stats_layout.setSpacing(0)
             stats_layout.setContentsMargins(2, 1, 2, 1)
-
+            
             stats = [
                 ("👍", data.get('点赞数量', 'N/A')),
                 ("⭐", data.get('收藏数量', 'N/A')), 
                 ("💬", data.get('评论数量', 'N/A')),
                 ("🔄", data.get('分享数量', 'N/A'))
             ]
-
+            
             for i, (label, value) in enumerate(stats):
                 stat_widget = QWidget()
                 stat_layout = QHBoxLayout(stat_widget)
                 stat_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
+                
                 label_label = QLabel(f"{label} {value}")
                 label_label.setStyleSheet("color: #666666; font-size: 12px;")
                 stat_layout.addWidget(label_label)
-
+                
                 stats_layout.addWidget(stat_widget)
-
+                
                 if i < len(stats) - 1:
                     divider = QLabel("|")
                     divider.setStyleSheet("color: #e1e4e8;")
                     stats_layout.addWidget(divider)
-
+            
             self.result_layout.addWidget(stats_frame)
-
+            
             # 添加标签
             self.add_section("🏷️ 标签", [
                 ("", data.get('作品标签', 'N/A'))
             ])
-
+            
             # 添加链接
             links_frame = QFrame()
             links_frame.setStyleSheet("""
@@ -704,7 +723,7 @@ class ToolsPage(QWidget):
             links_layout = QVBoxLayout(links_frame)
             links_layout.setSpacing(2)
             links_layout.setContentsMargins(8, 4, 8, 4)
-
+            
             work_link = QLabel(f"作品链接：<a href='{data.get('作品链接', '#')}' style='color: #4a90e2;'>{data.get('作品链接', 'N/A')}</a>")
             work_link.setOpenExternalLinks(True)
             work_link.setStyleSheet("""
@@ -713,7 +732,7 @@ class ToolsPage(QWidget):
                 padding: 0;
             """)
             links_layout.addWidget(work_link)
-
+            
             author_link = QLabel(f"作者主页：<a href='{data.get('作者链接', '#')}' style='color: #4a90e2;'>{data.get('作者链接', 'N/A')}</a>")
             author_link.setOpenExternalLinks(True)
             author_link.setStyleSheet("""
@@ -721,9 +740,9 @@ class ToolsPage(QWidget):
                 padding: 0;
             """)
             links_layout.addWidget(author_link)
-
+            
             self.result_layout.addWidget(links_frame)
-
+            
             # 显示成功提示
             TipWindow(self.parent, "✅ 解析成功").show()
 
@@ -769,7 +788,7 @@ class ToolsPage(QWidget):
                 item.widget().deleteLater()
         
         # 重新添加结果标题
-        result_title = QLabel("📋 解析结果")
+        result_title = QLabel("📋 内容展示")
         result_title.setStyleSheet("""
             font-size: 16pt;
             font-weight: bold;
@@ -1181,66 +1200,74 @@ class ToolsPage(QWidget):
                 self.group_content_layout.addWidget(no_content_label)
                 return
             
-            # 创建内容列表区域
-            content_list_frame = QFrame()
-            content_list_frame.setStyleSheet("""
+            # 创建内容区域
+            content_frame = QFrame()
+            content_frame.setStyleSheet("""
                 QFrame {
                     background-color: white;
-                    border-radius: 8px;
-                    padding: 15px;
-                    margin: 10px 0;
+                    border-radius: 10px;
+                    padding: 12px;
+                    margin: 0;
                 }
             """)
-            content_list_layout = QVBoxLayout(content_list_frame)
-            content_list_layout.setSpacing(10)
+            content_layout = QVBoxLayout(content_frame)
+            content_layout.setSpacing(10)
+            content_layout.setContentsMargins(0, 0, 0, 0)
             
             # 添加标题
             title_label = QLabel(f"分组内容 ({len(pics)} 项)")
             title_label.setStyleSheet("""
-                font-size: 16px;
+                font-size: 16pt;
                 font-weight: bold;
-                color: #333;
+                color: #1a1a1a;
+                border: none;
+                padding: 0;
                 margin-bottom: 10px;
             """)
-            content_list_layout.addWidget(title_label)
+            content_layout.addWidget(title_label)
             
-            # 添加内容列表
+            # 创建媒体预览区域
+            preview_frame = QFrame()
+            preview_frame.setStyleSheet("""
+                QFrame {
+                    background-color: white;
+                    border: none;
+                }
+            """)
+            preview_layout = QVBoxLayout(preview_frame)
+            preview_layout.setSpacing(5)
+            preview_layout.setContentsMargins(0, 0, 0, 0)
+            
+            # 创建图片网格容器
+            grid_widget = QWidget()
+            grid_layout = QGridLayout(grid_widget)
+            grid_layout.setSpacing(4)
+            grid_layout.setContentsMargins(0, 0, 0, 0)
+            
+            # 加载图片
+            row = 0
+            col = 0
             for pic in pics:
                 # 解析内容数据
                 content_data = eval(pic[2])  # 将字符串转换回字典
                 
-                # 创建内容项
-                item_frame = QFrame()
-                item_frame.setStyleSheet("""
-                    QFrame {
-                        background-color: #f8f9fa;
-                        border-radius: 6px;
-                        padding: 10px;
-                        margin: 5px 0;
-                    }
-                    QFrame:hover {
-                        background-color: #e3f2fd;
-                    }
-                """)
-                # 设置鼠标指针样式
-                item_frame.setCursor(Qt.CursorShape.PointingHandCursor)
-                item_layout = QHBoxLayout(item_frame)
-                item_layout.setSpacing(10)
-                
-                # 添加图片
                 if '下载地址' in content_data and content_data['下载地址']:
-                    image_label = QLabel()
-                    image_label.setFixedSize(80, 80)
-                    image_label.setStyleSheet("""
-                        QLabel {
-                            border-radius: 4px;
-                            background-color: #e0e0e0;
-                        }
-                    """)
-                    
-                    # 加载图片
                     try:
-                        # 使用第一张图片
+                        # 创建图片卡片
+                        image_card = QFrame()
+                        image_card.setFixedSize(150, 230)
+                        image_card.setStyleSheet("""
+                            QFrame {
+                                background-color: white;
+                                margin: 0;
+                                padding: 0;
+                            }
+                        """)
+                        card_layout = QVBoxLayout(image_card)
+                        card_layout.setContentsMargins(0, 0, 0, 0)
+                        card_layout.setSpacing(0)
+                        
+                        # 加载图片
                         image_url = content_data['下载地址'][0]
                         response = requests.get(image_url, headers={
                             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -1255,56 +1282,55 @@ class ToolsPage(QWidget):
                         
                         if not pixmap.isNull():
                             # 调整图片大小并保持比例
-                            scaled_pixmap = pixmap.scaled(80, 80, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                            image_label = QLabel()
+                            image_label.setFixedSize(150, 200)
+                            image_label.setStyleSheet("""
+                                QLabel {
+                                    border: none;
+                                    padding: 0;
+                                    margin: 0;
+                                    background: transparent;
+                                }
+                            """)
+                            scaled_pixmap = pixmap.scaled(150, 200, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                             image_label.setPixmap(scaled_pixmap)
                             image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                            card_layout.addWidget(image_label)
+                            
+                            # 添加标题
+                            title = QLabel(content_data.get('作品标题', '无标题'))
+                            title.setStyleSheet("""
+                                font-size: 12px;
+                                color: #333;
+                                qproperty-alignment: AlignCenter;
+                            """)
+                            title.setWordWrap(True)
+                            title.setFixedHeight(30)  # 固定高度显示两行
+                            card_layout.addWidget(title)
+                            
+                            # 添加点击事件
+                            image_card.mousePressEvent = lambda e, d=content_data: self.show_content_details(d)
+                            image_card.setCursor(Qt.CursorShape.PointingHandCursor)
+                            
+                            # 添加到网格布局
+                            grid_layout.addWidget(image_card, row, col)
+                            
+                            col += 1
+                            if col >= 4:  # 每行最多显示4个图片
+                                col = 0
+                                row += 1
+                                
                     except Exception as e:
                         print(f"加载图片失败: {str(e)}")
-                
-                item_layout.addWidget(image_label)
-                
-                # 添加文本内容
-                text_layout = QVBoxLayout()
-                text_layout.setSpacing(5)
-                
-                # 添加标题
-                title = QLabel(content_data.get('作品标题', '无标题'))
-                title.setStyleSheet("""
-                    font-size: 14px;
-                    font-weight: bold;
-                    color: #333;
-                """)
-                title.setWordWrap(True)
-                text_layout.addWidget(title)
-                
-                # 添加描述
-                desc = QLabel(content_data.get('作品描述', '无描述'))
-                desc.setStyleSheet("""
-                    font-size: 12px;
-                    color: #666;
-                """)
-                desc.setWordWrap(True)
-                desc.setMaximumHeight(40)  # 限制高度，显示两行
-                text_layout.addWidget(desc)
-                
-                # 添加链接
-                link = QLabel(f"<a href='{content_data.get('作品链接', '#')}' style='color: #4a90e2;'>{content_data.get('作品链接', 'N/A')}</a>")
-                link.setOpenExternalLinks(True)
-                link.setStyleSheet("font-size: 12px;")
-                text_layout.addWidget(link)
-                
-                item_layout.addLayout(text_layout)
-                
-                # 添加点击事件
-                item_frame.mousePressEvent = lambda e, d=content_data: self.show_content_details(d)
-                
-                content_list_layout.addWidget(item_frame)
+            
+            preview_layout.addWidget(grid_widget)
+            content_layout.addWidget(preview_frame)
+            
+            # 将内容区域添加到分组内容布局
+            self.group_content_layout.addWidget(content_frame)
             
             # 添加弹性空间
-            content_list_layout.addStretch()
-            
-            # 将内容列表添加到分组内容区域
-            self.group_content_layout.addWidget(content_list_frame)
+            self.group_content_layout.addStretch()
             
         except Exception as e:
             print(f"加载分组内容失败: {e}")
@@ -1317,7 +1343,7 @@ class ToolsPage(QWidget):
                 border-radius: 8px;
             """)
             self.group_content_layout.addWidget(error_label)
-    
+
     def clear_group_content_area(self):
         """清空分组内容区域"""
         # 清空分组内容布局中的所有组件
@@ -1332,28 +1358,167 @@ class ToolsPage(QWidget):
             # 清空之前的结果
             self.clear_result_area()
             
-            # 创建内容详情区域
-            details_frame = QFrame()
-            details_frame.setStyleSheet("""
+            # 创建媒体预览区域
+            preview_frame = QFrame()
+            preview_frame.setStyleSheet("""
                 QFrame {
+                    margin-top: 5px;
+                    padding: 8px;
                     background-color: white;
-                    border-radius: 8px;
-                    padding: 15px;
-                    margin: 10px 0;
+                    border: none;
                 }
             """)
-            details_layout = QVBoxLayout(details_frame)
-            details_layout.setSpacing(10)
+            preview_layout = QVBoxLayout(preview_frame)
+            preview_layout.setSpacing(5)
+            preview_layout.setContentsMargins(0, 0, 0, 0)
             
-            # 添加标题
-            title_label = QLabel("内容详情")
+            # 添加预览标题和按钮区域
+            title_bar = QWidget()
+            title_layout = QHBoxLayout(title_bar)
+            title_layout.setContentsMargins(0, 0, 0, 4)
+            title_layout.setSpacing(4)
+            
+            title_label = QLabel("图片内容")
             title_label.setStyleSheet("""
-                font-size: 16px;
+                font-size: 14pt;
                 font-weight: bold;
-                color: #333;
-                margin-bottom: 10px;
+                color: #1a1a1a;
+                border: none;
+                padding: 0;
             """)
-            details_layout.addWidget(title_label)
+            title_layout.addWidget(title_label)
+            
+            title_layout.addStretch()
+            
+            # 添加下载全部按钮
+            if '下载地址' in content_data and content_data['下载地址']:
+                download_btn = QPushButton("⬇️ 下载全部")
+                download_btn.setStyleSheet("""
+                    QPushButton {
+                        padding: 4px 8px;
+                        font-size: 12px;
+                        background-color: #4a90e2;
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                    }
+                    QPushButton:hover {
+                        background-color: #357abd;
+                    }
+                """)
+                download_btn.clicked.connect(lambda: self.download_all_images(content_data['下载地址']))
+                title_layout.addWidget(download_btn)
+            
+            preview_layout.addWidget(title_bar)
+            
+            # 创建图片容器
+            images_widget = QWidget()
+            images_layout = QVBoxLayout(images_widget)
+            images_layout.setSpacing(4)
+            images_layout.setContentsMargins(0, 0, 0, 0)
+            
+            # 创建图片网格容器
+            grid_widget = QWidget()
+            grid_layout = QGridLayout(grid_widget)
+            grid_layout.setSpacing(4)
+            grid_layout.setContentsMargins(0, 0, 0, 0)
+            
+            # 加载图片
+            if '下载地址' in content_data and content_data['下载地址']:
+                row = 0
+                col = 0
+                for url in content_data['下载地址']:
+                    try:
+                        # 创建图片卡片
+                        image_card = QFrame()
+                        image_card.setFixedSize(150, 230)
+                        image_card.setStyleSheet("""
+                            QFrame {
+                                background-color: white;
+                                margin: 0;
+                                padding: 0;
+                            }
+                        """)
+                        card_layout = QVBoxLayout(image_card)
+                        card_layout.setContentsMargins(0, 0, 0, 0)
+                        card_layout.setSpacing(0)
+                        
+                        # 加载图片
+                        response = requests.get(url, headers={
+                            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                            'Referer': 'https://www.xiaohongshu.com/'
+                        })
+                        image_data = response.content
+                        
+                        # 创建QPixmap并设置图片
+                        pixmap = QPixmap()
+                        byte_array = QByteArray(image_data)
+                        pixmap.loadFromData(byte_array)
+                        
+                        if not pixmap.isNull():
+                            # 调整图片大小并保持比例
+                            image_label = QLabel()
+                            image_label.setFixedSize(150, 200)
+                            image_label.setStyleSheet("""
+                                QLabel {
+                                    border: none;
+                                    padding: 0;
+                                    margin: 0;
+                                    background: transparent;
+                                }
+                            """)
+                            scaled_pixmap = pixmap.scaled(150, 200, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                            image_label.setPixmap(scaled_pixmap)
+                            image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                            card_layout.addWidget(image_label)
+                            
+                            # 添加下载按钮
+                            download_link = QPushButton("下载图片")
+                            download_link.setFixedHeight(20)
+                            download_link.setCursor(Qt.CursorShape.PointingHandCursor)
+                            download_link.setStyleSheet("""
+                                QPushButton {
+                                    color: #4a90e2;
+                                    border: none;
+                                    background: none;
+                                    text-align: center;
+                                    padding: 0;
+                                    margin: 0;
+                                    font-size: 12px;
+                                }
+                                QPushButton:hover {
+                                    text-decoration: underline;
+                                }
+                            """)
+                            download_link.clicked.connect(lambda checked, u=url, i=col+1: self.download_image(u, f"图片_{i}.jpg"))
+                            card_layout.addWidget(download_link)
+                            
+                            # 添加到网格布局
+                            grid_layout.addWidget(image_card, row, col)
+                            
+                            col += 1
+                            if col >= 4:  # 每行最多显示4个图片
+                                col = 0
+                                row += 1
+                                
+                    except Exception as e:
+                        print(f"加载图片失败: {str(e)}")
+            else:
+                # 显示无图片提示
+                no_image_label = QLabel("暂无可下载的媒体文件")
+                no_image_label.setStyleSheet("""
+                    color: #666666;
+                    border: none;
+                    padding: 0;
+                    margin: 0;
+                """)
+                grid_layout.addWidget(no_image_label, 0, 0)
+            
+            images_layout.addWidget(grid_widget)
+            preview_layout.addWidget(images_widget)
+            
+            # 将预览区域添加到主布局
+            self.result_layout.addWidget(preview_frame)
             
             # 添加作品信息
             self.add_section("🎥 作品信息", [
