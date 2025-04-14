@@ -10,8 +10,8 @@ import requests
 from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton,
                              QScrollArea, QTextEdit, QVBoxLayout, QWidget,
                              QScrollArea, QGridLayout, QFileDialog, QInputDialog,
-                             QMessageBox, QLineEdit)
-from PyQt6.QtCore import Qt, QByteArray, QThread, pyqtSignal
+                             QMessageBox, QLineEdit, QLayout)
+from PyQt6.QtCore import Qt, QByteArray, QThread, pyqtSignal, QRect, QSize, QPoint
 from PyQt6.QtGui import QPixmap
 
 from src.core.alert import TipWindow
@@ -155,13 +155,13 @@ class ToolsPage(QWidget):
             QScrollBar:vertical {
                 border: none;
                 background: #f1f1f1;
-                width: 8px;
+                width: 6px;
                 margin: 0px;
             }
             QScrollBar::handle:vertical {
                 background: #888;
                 min-height: 20px;
-                border-radius: 4px;
+                border-radius: 3px;
             }
             QScrollBar::add-line:vertical {
                 height: 0px;
@@ -176,9 +176,6 @@ class ToolsPage(QWidget):
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(8, 3, 8, 3)
         content_layout.setSpacing(3)
-        
-        
-        
 
         # 创建分组管理区域
         group_frame = QFrame()
@@ -188,54 +185,50 @@ class ToolsPage(QWidget):
                 background-color: white;
                 border-radius: 10px;
                 padding: 15px;
+                margin: 10px;
             }
         """)
         
         group_layout = QVBoxLayout(group_frame)
+        group_layout.setSpacing(15)
         
         # 分组管理标题
+        title_layout = QHBoxLayout()
         group_title = QLabel("分组管理")
-        group_title.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 10px;")
-        group_layout.addWidget(group_title)
+        group_title.setStyleSheet("font-size: 16px; font-weight: bold;border: none;")
+        title_layout.addWidget(group_title)
         
-        # 添加分组输入框和按钮
-        group_input_layout = QHBoxLayout()
-        self.group_input = QTextEdit()
-        self.group_input.setPlaceholderText("输入分组名称")
-        self.group_input.setMaximumHeight(40)
-        self.group_input.setStyleSheet("""
-            QTextEdit {
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                padding: 5px;
-            }
-        """)
-        
-        add_group_btn = QPushButton("添加分组")
-        add_group_btn.setStyleSheet("""
+        # 添加新标签按钮
+        add_tag_btn = QPushButton("新建分组")
+        add_tag_btn.setStyleSheet("""
             QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 5px;
+                background-color: white;
+                color: #666;
+                border: 1px dashed #ccc;
+                border-radius: 15px;
                 padding: 5px 15px;
+                font-size: 13px;
             }
             QPushButton:hover {
-                background-color: #45a049;
+                border-color: #2196F3;
+                color: #2196F3;
+                background-color: white;
             }
         """)
-        add_group_btn.clicked.connect(self.add_group)
+        add_tag_btn.clicked.connect(self.show_add_group_dialog)
+        title_layout.addWidget(add_tag_btn)
+        title_layout.addStretch()
         
-        group_input_layout.addWidget(self.group_input)
-        group_input_layout.addWidget(add_group_btn)
-        group_layout.addLayout(group_input_layout)
+        group_layout.addLayout(title_layout)
         
-        # 分组列表
-        self.group_list = QVBoxLayout()
-        group_layout.addLayout(self.group_list)
+        # 标签流式布局容器
+        self.tags_flow_widget = QWidget()
+        self.tags_flow_layout = FlowLayout(self.tags_flow_widget)
+        self.tags_flow_layout.setSpacing(10)
+        group_layout.addWidget(self.tags_flow_widget)
         
-        # 将分组管理区域添加到主布局
-        layout.addWidget(group_frame)
+        # 将分组管理区域添加到内容布局
+        content_layout.addWidget(group_frame)
 
         # 创建视频去水印工具区域
         watermark_frame = QFrame()
@@ -1001,183 +994,110 @@ class ToolsPage(QWidget):
         """处理下载进度"""
         TipWindow(self.parent, message).show()
 
+    def show_add_group_dialog(self):
+        """显示添加分组对话框"""
+        new_name, ok = QInputDialog.getText(
+            self,
+            "添加分组",
+            "请输入分组名称:",
+            QLineEdit.EchoMode.Normal,
+            ""
+        )
+        
+        if ok and new_name.strip():
+            try:
+                self.parent.group_manager.insert_group(new_name.strip(), int(time.time()))
+                self.load_groups()
+            except Exception as e:
+                print(f"添加分组失败: {e}")
+
     def load_groups(self):
         """加载分组列表"""
-        # 清空现有分组列表
-        while self.group_list.count():
-            item = self.group_list.takeAt(0)
+        # 清空现有标签
+        while self.tags_flow_layout.count():
+            item = self.tags_flow_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        
-        # 创建网格布局容器
-        grid_widget = QWidget()
-        grid_layout = QGridLayout(grid_widget)
-        grid_layout.setSpacing(8)  # 减小网格间距
-        grid_layout.setContentsMargins(0, 0, 0, 0)
         
         # 获取所有分组
         groups = self.parent.group_manager.get_all_groups()
         
-        # 添加分组到网格
-        row = 0
-        col = 0
-        max_cols = 3  # 每行最多显示3个分组
-        
+        # 添加标签
         for group in groups:
-            # 创建分组卡片
-            group_card = QFrame()
-            group_card.setStyleSheet("""
+            # 创建标签容器
+            tag_widget = QFrame()
+            tag_widget.setStyleSheet("""
                 QFrame {
-                    background-color: #f8f9fa;
-                    border-radius: 8px;
-                    padding: 12px;
+                    background-color: #f0f2f5;
+                    border-radius: 15px;
+                    padding: 5px 15px;
+                    margin: 2px;
                 }
                 QFrame:hover {
-                    background-color: #e9ecef;
+                    background-color: #e6e8eb;
                 }
             """)
             
-            # 创建卡片布局
-            card_layout = QVBoxLayout(group_card)
-            card_layout.setSpacing(6)  # 减小卡片内部间距
-            card_layout.setContentsMargins(8, 8, 8, 8)  # 减小卡片内边距
+            # 创建水平布局
+            tag_layout = QHBoxLayout(tag_widget)
+            tag_layout.setContentsMargins(0, 0, 0, 0)
+            tag_layout.setSpacing(8)
             
-            # 添加公司图标和名称布局
-            header_layout = QHBoxLayout()
-            header_layout.setSpacing(8)  # 减小头部布局间距
-            
-            # 公司图标
-            icon_label = QLabel()
-            icon_label.setFixedSize(32, 32)  # 减小图标尺寸
-            icon_label.setStyleSheet("""
-                background-color: white;
-                border-radius: 16px;
-                padding: 6px;
-            """)
-            header_layout.addWidget(icon_label)
-            
-            # 公司信息布局
-            info_layout = QVBoxLayout()
-            info_layout.setSpacing(2)  # 减小信息布局间距
-            
-            # 公司名称
+            # 标签名称
             name_label = QLabel(str(group[1]))
             name_label.setStyleSheet("""
-                font-size: 14px;
-                font-weight: bold;
                 color: #333;
+                font-size: 13px;
+                padding: 0;
+                margin: 0;
             """)
-            info_layout.addWidget(name_label)
-            
-            header_layout.addLayout(info_layout)
-            header_layout.addStretch()
-            card_layout.addLayout(header_layout)
-            
-            # 添加创建时间
-            time_label = QLabel(f"创建时间：{datetime.fromtimestamp(group[2]).strftime('%Y-%m-%d %H:%M:%S')}")
-            time_label.setStyleSheet("""
-                font-size: 11px;
-                color: #999;
-                margin-top: 4px;
-            """)
-            card_layout.addWidget(time_label)
-            
-            # 添加按钮布局
-            button_layout = QHBoxLayout()
-            button_layout.setSpacing(6)  # 减小按钮间距
-            
+            tag_layout.addWidget(name_label)
+
             # 编辑按钮
-            edit_btn = QPushButton("编辑")
+            edit_btn = QPushButton("✎")
+            edit_btn.setFixedSize(16, 16)
             edit_btn.setStyleSheet("""
                 QPushButton {
                     background-color: transparent;
-                    color: #2196F3;
-                    border: 1px solid #2196F3;
-                    border-radius: 4px;
-                    padding: 4px 12px;
+                    color: #999;
+                    border: none;
                     font-size: 12px;
+                    font-weight: bold;
+                    padding: 0;
+                    margin: 0;
                 }
                 QPushButton:hover {
-                    background-color: #2196F3;
-                    color: white;
+                    color: #2196F3;
                 }
             """)
             edit_btn.clicked.connect(lambda checked, g=group: self.edit_group(g))
-            button_layout.addWidget(edit_btn)
+            tag_layout.addWidget(edit_btn)
             
             # 删除按钮
-            delete_btn = QPushButton("删除")
+            delete_btn = QPushButton("×")
+            delete_btn.setFixedSize(16, 16)
             delete_btn.setStyleSheet("""
                 QPushButton {
                     background-color: transparent;
-                    color: #f44336;
-                    border: 1px solid #f44336;
-                    border-radius: 4px;
-                    padding: 4px 12px;
-                    font-size: 12px;
+                    color: #999;
+                    border: none;
+                    font-size: 14px;
+                    font-weight: bold;
+                    padding: 0;
+                    margin: 0;
                 }
                 QPushButton:hover {
-                    background-color: #f44336;
-                    color: white;
+                    color: #f44336;
                 }
             """)
             delete_btn.clicked.connect(lambda checked, g=group: self.delete_group(g))
-            button_layout.addWidget(delete_btn)
+            tag_layout.addWidget(delete_btn)
             
-            card_layout.addLayout(button_layout)
+            # 设置固定高度但不设置固定宽度
+            tag_widget.setFixedHeight(30)
             
-            # 添加到网格布局
-            grid_layout.addWidget(group_card, row, col)
-            
-            # 更新行列位置
-            col += 1
-            if col >= max_cols:
-                col = 0
-                row += 1
-        
-        # 创建滚动区域
-        scroll_area = QScrollArea()
-        scroll_area.setWidget(grid_widget)
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("""
-            QScrollArea {
-                border: none;
-                background-color: transparent;
-            }
-            QScrollBar:vertical {
-                border: none;
-                background: #f1f1f1;
-                width: 6px;
-                margin: 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: #888;
-                min-height: 20px;
-                border-radius: 3px;
-            }
-            QScrollBar::add-line:vertical {
-                height: 0px;
-            }
-            QScrollBar::sub-line:vertical {
-                height: 0px;
-            }
-        """)
-        
-        # 将滚动区域添加到分组列表布局
-        self.group_list.addWidget(scroll_area)
-
-    def add_group(self):
-        """添加新分组"""
-        group_name = self.group_input.toPlainText().strip()
-        if not group_name:
-            return
-            
-        try:
-            self.parent.group_manager.insert_group(group_name, int(time.time()))
-            self.group_input.clear()
-            self.load_groups()
-        except Exception as e:
-            print(f"添加分组失败: {e}")
+            # 添加到流式布局
+            self.tags_flow_layout.addWidget(tag_widget)
 
     def edit_group(self, group):
         """编辑分组"""
@@ -1212,3 +1132,75 @@ class ToolsPage(QWidget):
                 self.load_groups()
             except Exception as e:
                 print(f"删除分组失败: {e}")
+
+class FlowLayout(QLayout):
+    """流式布局类"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.items = []
+        self.spacing_x = 10
+        self.spacing_y = 10
+        
+    def addItem(self, item):
+        self.items.append(item)
+        
+    def count(self):
+        return len(self.items)
+        
+    def itemAt(self, index):
+        if 0 <= index < len(self.items):
+            return self.items[index]
+        return None
+        
+    def takeAt(self, index):
+        if 0 <= index < len(self.items):
+            return self.items.pop(index)
+        return None
+        
+    def expandingDirections(self):
+        return Qt.Orientation(0)
+        
+    def hasHeightForWidth(self):
+        return True
+        
+    def heightForWidth(self, width):
+        height = self.doLayout(QRect(0, 0, width, 0), True)
+        return height
+        
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self.doLayout(rect, False)
+        
+    def sizeHint(self):
+        return self.minimumSize()
+        
+    def minimumSize(self):
+        size = QSize()
+        for item in self.items:
+            size = size.expandedTo(item.minimumSize())
+        return size
+        
+    def doLayout(self, rect, testOnly):
+        x = rect.x()
+        y = rect.y()
+        lineHeight = 0
+        
+        for item in self.items:
+            widget = item.widget()
+            spaceX = self.spacing_x
+            spaceY = self.spacing_y
+            
+            nextX = x + item.sizeHint().width() + spaceX
+            if nextX - spaceX > rect.right() and lineHeight > 0:
+                x = rect.x()
+                y = y + lineHeight + spaceY
+                nextX = x + item.sizeHint().width() + spaceX
+                lineHeight = 0
+            
+            if not testOnly:
+                item.setGeometry(QRect(QPoint(x, y), item.sizeHint()))
+            
+            x = nextX
+            lineHeight = max(lineHeight, item.sizeHint().height())
+        
+        return y + lineHeight - rect.y()
