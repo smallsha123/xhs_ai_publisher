@@ -4,15 +4,18 @@ import os
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+from datetime import datetime
 
 import requests
 from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton,
                              QScrollArea, QTextEdit, QVBoxLayout, QWidget,
-                             QScrollArea, QGridLayout, QFileDialog)
+                             QScrollArea, QGridLayout, QFileDialog, QInputDialog,
+                             QMessageBox, QLineEdit)
 from PyQt6.QtCore import Qt, QByteArray, QThread, pyqtSignal
 from PyQt6.QtGui import QPixmap
 
 from src.core.alert import TipWindow
+from src.database.group import GroupManager
 
 
 class VideoProcessThread(QThread):
@@ -167,14 +170,71 @@ class ToolsPage(QWidget):
         # 创建内容容器
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(8, 3, 8, 3)  # 减小外边距
-        content_layout.setSpacing(3)  # 减小组件间距
+        content_layout.setContentsMargins(8, 3, 8, 3)
+        content_layout.setSpacing(3)
+
+        # 创建分组管理区域
+        group_frame = QFrame()
+        group_frame.setObjectName("groupFrame")
+        group_frame.setStyleSheet("""
+            QFrame#groupFrame {
+                background-color: white;
+                border-radius: 10px;
+                padding: 15px;
+            }
+        """)
+        
+        group_layout = QVBoxLayout(group_frame)
+        
+        # 分组管理标题
+        group_title = QLabel("分组管理")
+        group_title.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 10px;")
+        group_layout.addWidget(group_title)
+        
+        # 添加分组输入框和按钮
+        group_input_layout = QHBoxLayout()
+        self.group_input = QTextEdit()
+        self.group_input.setPlaceholderText("输入分组名称")
+        self.group_input.setMaximumHeight(40)
+        self.group_input.setStyleSheet("""
+            QTextEdit {
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                padding: 5px;
+            }
+        """)
+        
+        add_group_btn = QPushButton("添加分组")
+        add_group_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 5px 15px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        add_group_btn.clicked.connect(self.add_group)
+        
+        group_input_layout.addWidget(self.group_input)
+        group_input_layout.addWidget(add_group_btn)
+        group_layout.addLayout(group_input_layout)
+        
+        # 分组列表
+        self.group_list = QVBoxLayout()
+        group_layout.addLayout(self.group_list)
+        
+        # 将分组管理区域添加到主布局
+        layout.addWidget(group_frame)
 
         # 创建视频去水印工具区域
         watermark_frame = QFrame()
         watermark_frame.setStyleSheet("""
             QFrame {
-                padding: 8px;  /* 减小内边距 */
+                padding: 8px;
                 background-color: white;
                 border: none;
                 border-radius: 8px;
@@ -186,7 +246,7 @@ class ToolsPage(QWidget):
             }
             QLineEdit {
                 font-family: """ + ("Menlo" if sys.platform == "darwin" else "Consolas") + """;
-                padding: 4px;  /* 减小输入框内边距 */
+                padding: 4px;
                 font-size: 12pt;
                 border: 1px solid #ddd;
                 border-radius: 4px;
@@ -194,22 +254,22 @@ class ToolsPage(QWidget):
             }
             QPushButton {
                 font-family: """ + ("Menlo" if sys.platform == "darwin" else "Consolas") + """;
-                padding: 6px;  /* 减小按钮内边距 */
+                padding: 6px;
                 font-size: 14pt;
                 font-weight: bold;
                 background-color: #4a90e2;
                 color: white;
                 border: none;
                 border-radius: 4px;
-                margin-top: 8px;  /* 减小上边距 */
+                margin-top: 8px;
             }
             QPushButton:hover {
                 background-color: #357abd;
             }
         """)
         watermark_layout = QVBoxLayout(watermark_frame)
-        watermark_layout.setSpacing(3)  # 减小组件间距
-        watermark_layout.setContentsMargins(8, 3, 8, 3)  # 减小内边距
+        watermark_layout.setSpacing(3)
+        watermark_layout.setContentsMargins(8, 3, 8, 3)
 
         # 添加标题
         title_label = QLabel("⚡ 视频平台水印去除工具")
@@ -217,7 +277,7 @@ class ToolsPage(QWidget):
             font-size: 16pt;
             font-weight: bold;
             color: #2c3e50;
-            margin-bottom: 8px;  /* 减小下边距 */
+            margin-bottom: 8px;
         """)
         watermark_layout.addWidget(title_label)
 
@@ -401,10 +461,6 @@ class ToolsPage(QWidget):
     def handle_video_process_result(self, data):
         """处理视频解析结果"""
         try:
-            
-            print(data)
-            
-            
             self.parent.pic_manager.insert_pic(data['作品链接'], str(data), 1, int(time.time()))
             # 清空之前的结果
             self.clear_result_area()
@@ -936,3 +992,116 @@ class ToolsPage(QWidget):
     def handle_download_progress(self, message):
         """处理下载进度"""
         TipWindow(self.parent, message).show()
+
+    def load_groups(self):
+        """加载分组列表"""
+        # 清空现有分组列表
+        while self.group_list.count():
+            item = self.group_list.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # 获取所有分组
+        groups = self.parent.group_manager.get_all_groups()
+        
+        # 添加分组到列表
+        for group in groups:
+            group_item = QFrame()
+            group_item.setStyleSheet("""
+                QFrame {
+                    background-color: #f5f5f5;
+                    border-radius: 5px;
+                    padding: 10px;
+                    margin-bottom: 5px;
+                }
+            """)
+            
+            group_item_layout = QHBoxLayout(group_item)
+            
+            # 分组名称
+            group_name = QLabel(str(group[1]))  # 使用索引访问元组
+            group_name.setStyleSheet("font-size: 14px;")
+            group_item_layout.addWidget(group_name)
+            
+            # 编辑按钮
+            edit_btn = QPushButton("编辑")
+            edit_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #2196F3;
+                    color: white;
+                    border: none;
+                    border-radius: 3px;
+                    padding: 3px 10px;
+                }
+                QPushButton:hover {
+                    background-color: #1976D2;
+                }
+            """)
+            edit_btn.clicked.connect(lambda checked, g=group: self.edit_group(g))
+            group_item_layout.addWidget(edit_btn)
+            
+            # 删除按钮
+            delete_btn = QPushButton("删除")
+            delete_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #f44336;
+                    color: white;
+                    border: none;
+                    border-radius: 3px;
+                    padding: 3px 10px;
+                }
+                QPushButton:hover {
+                    background-color: #d32f2f;
+                }
+            """)
+            delete_btn.clicked.connect(lambda checked, g=group: self.delete_group(g))
+            group_item_layout.addWidget(delete_btn)
+            
+            self.group_list.addWidget(group_item)
+
+    def add_group(self):
+        """添加新分组"""
+        group_name = self.group_input.toPlainText().strip()
+        if not group_name:
+            return
+            
+        try:
+            self.parent.group_manager.insert_group(group_name, int(time.time()))
+            self.group_input.clear()
+            self.load_groups()
+        except Exception as e:
+            print(f"添加分组失败: {e}")
+
+    def edit_group(self, group):
+        """编辑分组"""
+        new_name, ok = QInputDialog.getText(
+            self,
+            "编辑分组",
+            "请输入新的分组名称:",
+            QLineEdit.EchoMode.Normal,
+            str(group[1])
+        )
+        
+        if ok and new_name.strip():
+            try:
+                self.parent.group_manager.update_group_name(group[0], new_name.strip())
+                self.load_groups()
+            except Exception as e:
+                print(f"编辑分组失败: {e}")
+
+    def delete_group(self, group):
+        """删除分组"""
+        reply = QMessageBox.question(
+            self,
+            "确认删除",
+            f"确定要删除分组 '{group[1]}' 吗？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                self.parent.group_manager.delete_group(group[0])
+                self.load_groups()
+            except Exception as e:
+                print(f"删除分组失败: {e}")
