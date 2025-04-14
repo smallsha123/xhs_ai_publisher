@@ -173,7 +173,7 @@ class ToolsPage(QWidget):
 
         # 创建内容容器
         content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
+        content_layout = QVBoxLayout(content_widget)  # 改回垂直布局
         content_layout.setContentsMargins(8, 3, 8, 3)
         content_layout.setSpacing(3)
 
@@ -188,38 +188,13 @@ class ToolsPage(QWidget):
                 margin: 10px;
             }
         """)
-        
         group_layout = QVBoxLayout(group_frame)
         group_layout.setSpacing(15)
         
         # 分组管理标题
-        title_layout = QHBoxLayout()
         group_title = QLabel("分组管理")
         group_title.setStyleSheet("font-size: 16px; font-weight: bold;border: none;")
-        title_layout.addWidget(group_title)
-        
-        # 添加新标签按钮
-        add_tag_btn = QPushButton("新建分组")
-        add_tag_btn.setStyleSheet("""
-            QPushButton {
-                background-color: white;
-                color: #666;
-                border: 1px dashed #ccc;
-                border-radius: 15px;
-                padding: 5px 15px;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                border-color: #2196F3;
-                color: #2196F3;
-                background-color: white;
-            }
-        """)
-        add_tag_btn.clicked.connect(self.show_add_group_dialog)
-        title_layout.addWidget(add_tag_btn)
-        title_layout.addStretch()
-        
-        group_layout.addLayout(title_layout)
+        group_layout.addWidget(group_title)
         
         # 标签流式布局容器
         self.tags_flow_widget = QWidget()
@@ -227,8 +202,34 @@ class ToolsPage(QWidget):
         self.tags_flow_layout.setSpacing(10)
         group_layout.addWidget(self.tags_flow_widget)
         
+        # 添加分组按钮
+        add_group_btn = QPushButton("➕ 添加分组")
+        add_group_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4a90e2;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #357abd;
+            }
+        """)
+        add_group_btn.clicked.connect(self.show_add_group_dialog)
+        group_layout.addWidget(add_group_btn)
+        
         # 将分组管理区域添加到内容布局
         content_layout.addWidget(group_frame)
+
+        # 创建分组内容区域
+        self.group_content_widget = QWidget()
+        self.group_content_layout = QVBoxLayout(self.group_content_widget)
+        self.group_content_layout.setSpacing(10)
+        self.group_content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.addWidget(self.group_content_widget)
 
         # 创建视频去水印工具区域
         watermark_frame = QFrame()
@@ -1152,8 +1153,313 @@ class ToolsPage(QWidget):
             self.parent.config.update_default_group(group[0])
             # 刷新分组列表以更新视觉效果
             self.load_groups()
+            # 加载并显示该分组下的内容
+            self.load_group_content(group[0])
         except Exception as e:
             print(f"保存分组选择失败: {e}")
+            TipWindow(self.parent, f"选择分组失败: {str(e)}").show()
+
+    def load_group_content(self, group_id):
+        """加载并显示分组内容"""
+        try:
+            # 获取该分组下的所有内容
+            pics = self.parent.pic_manager.get_pics_by_group_id(group_id)
+            
+            # 清空之前的内容列表
+            self.clear_group_content_area()
+            
+            if not pics:
+                # 如果没有内容，显示提示信息
+                no_content_label = QLabel("该分组下暂无内容")
+                no_content_label.setStyleSheet("""
+                    color: #666666;
+                    font-size: 14px;
+                    padding: 20px;
+                    background-color: white;
+                    border-radius: 8px;
+                """)
+                self.group_content_layout.addWidget(no_content_label)
+                return
+            
+            # 创建内容列表区域
+            content_list_frame = QFrame()
+            content_list_frame.setStyleSheet("""
+                QFrame {
+                    background-color: white;
+                    border-radius: 8px;
+                    padding: 15px;
+                    margin: 10px 0;
+                }
+            """)
+            content_list_layout = QVBoxLayout(content_list_frame)
+            content_list_layout.setSpacing(10)
+            
+            # 添加标题
+            title_label = QLabel(f"分组内容 ({len(pics)} 项)")
+            title_label.setStyleSheet("""
+                font-size: 16px;
+                font-weight: bold;
+                color: #333;
+                margin-bottom: 10px;
+            """)
+            content_list_layout.addWidget(title_label)
+            
+            # 添加内容列表
+            for pic in pics:
+                # 解析内容数据
+                content_data = eval(pic[2])  # 将字符串转换回字典
+                
+                # 创建内容项
+                item_frame = QFrame()
+                item_frame.setStyleSheet("""
+                    QFrame {
+                        background-color: #f8f9fa;
+                        border-radius: 6px;
+                        padding: 10px;
+                        margin: 5px 0;
+                    }
+                    QFrame:hover {
+                        background-color: #e3f2fd;
+                    }
+                """)
+                # 设置鼠标指针样式
+                item_frame.setCursor(Qt.CursorShape.PointingHandCursor)
+                item_layout = QHBoxLayout(item_frame)
+                item_layout.setSpacing(10)
+                
+                # 添加图片
+                if '下载地址' in content_data and content_data['下载地址']:
+                    image_label = QLabel()
+                    image_label.setFixedSize(80, 80)
+                    image_label.setStyleSheet("""
+                        QLabel {
+                            border-radius: 4px;
+                            background-color: #e0e0e0;
+                        }
+                    """)
+                    
+                    # 加载图片
+                    try:
+                        # 使用第一张图片
+                        image_url = content_data['下载地址'][0]
+                        response = requests.get(image_url, headers={
+                            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                            'Referer': 'https://www.xiaohongshu.com/'
+                        })
+                        image_data = response.content
+                        
+                        # 创建QPixmap并设置图片
+                        pixmap = QPixmap()
+                        byte_array = QByteArray(image_data)
+                        pixmap.loadFromData(byte_array)
+                        
+                        if not pixmap.isNull():
+                            # 调整图片大小并保持比例
+                            scaled_pixmap = pixmap.scaled(80, 80, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                            image_label.setPixmap(scaled_pixmap)
+                            image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    except Exception as e:
+                        print(f"加载图片失败: {str(e)}")
+                
+                item_layout.addWidget(image_label)
+                
+                # 添加文本内容
+                text_layout = QVBoxLayout()
+                text_layout.setSpacing(5)
+                
+                # 添加标题
+                title = QLabel(content_data.get('作品标题', '无标题'))
+                title.setStyleSheet("""
+                    font-size: 14px;
+                    font-weight: bold;
+                    color: #333;
+                """)
+                title.setWordWrap(True)
+                text_layout.addWidget(title)
+                
+                # 添加描述
+                desc = QLabel(content_data.get('作品描述', '无描述'))
+                desc.setStyleSheet("""
+                    font-size: 12px;
+                    color: #666;
+                """)
+                desc.setWordWrap(True)
+                desc.setMaximumHeight(40)  # 限制高度，显示两行
+                text_layout.addWidget(desc)
+                
+                # 添加链接
+                link = QLabel(f"<a href='{content_data.get('作品链接', '#')}' style='color: #4a90e2;'>{content_data.get('作品链接', 'N/A')}</a>")
+                link.setOpenExternalLinks(True)
+                link.setStyleSheet("font-size: 12px;")
+                text_layout.addWidget(link)
+                
+                item_layout.addLayout(text_layout)
+                
+                # 添加点击事件
+                item_frame.mousePressEvent = lambda e, d=content_data: self.show_content_details(d)
+                
+                content_list_layout.addWidget(item_frame)
+            
+            # 添加弹性空间
+            content_list_layout.addStretch()
+            
+            # 将内容列表添加到分组内容区域
+            self.group_content_layout.addWidget(content_list_frame)
+            
+        except Exception as e:
+            print(f"加载分组内容失败: {e}")
+            error_label = QLabel(f"加载分组内容失败: {str(e)}")
+            error_label.setStyleSheet("""
+                color: #dc2626;
+                font-size: 14px;
+                padding: 20px;
+                background-color: #fee2e2;
+                border-radius: 8px;
+            """)
+            self.group_content_layout.addWidget(error_label)
+    
+    def clear_group_content_area(self):
+        """清空分组内容区域"""
+        # 清空分组内容布局中的所有组件
+        while self.group_content_layout.count():
+            item = self.group_content_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+    def show_content_details(self, content_data):
+        """显示内容详情"""
+        try:
+            # 清空之前的结果
+            self.clear_result_area()
+            
+            # 创建内容详情区域
+            details_frame = QFrame()
+            details_frame.setStyleSheet("""
+                QFrame {
+                    background-color: white;
+                    border-radius: 8px;
+                    padding: 15px;
+                    margin: 10px 0;
+                }
+            """)
+            details_layout = QVBoxLayout(details_frame)
+            details_layout.setSpacing(10)
+            
+            # 添加标题
+            title_label = QLabel("内容详情")
+            title_label.setStyleSheet("""
+                font-size: 16px;
+                font-weight: bold;
+                color: #333;
+                margin-bottom: 10px;
+            """)
+            details_layout.addWidget(title_label)
+            
+            # 添加作品信息
+            self.add_section("🎥 作品信息", [
+                ("标题", content_data.get('作品标题', 'N/A')),
+                ("描述", content_data.get('作品描述', 'N/A')),
+                ("类型", content_data.get('作品类型', 'N/A')),
+                ("发布时间", content_data.get('发布时间', 'N/A'))
+            ])
+            
+            # 添加创作者信息
+            self.add_section("👤 创作者信息", [
+                ("昵称", content_data.get('作者昵称', 'N/A')),
+                ("ID", content_data.get('作者ID', 'N/A'))
+            ])
+            
+            # 添加数据统计
+            stats_frame = QFrame()
+            stats_frame.setStyleSheet("""
+                QFrame {
+                    background-color: #f8f9fa;
+                    padding: 4px;
+                    border: none;
+                    margin-bottom: 4px;
+                }
+            """)
+            stats_layout = QHBoxLayout(stats_frame)
+            stats_layout.setSpacing(0)
+            stats_layout.setContentsMargins(2, 1, 2, 1)
+            
+            stats = [
+                ("👍", content_data.get('点赞数量', 'N/A')),
+                ("⭐", content_data.get('收藏数量', 'N/A')), 
+                ("💬", content_data.get('评论数量', 'N/A')),
+                ("🔄", content_data.get('分享数量', 'N/A'))
+            ]
+            
+            for i, (label, value) in enumerate(stats):
+                stat_widget = QWidget()
+                stat_layout = QHBoxLayout(stat_widget)
+                stat_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                
+                label_label = QLabel(f"{label} {value}")
+                label_label.setStyleSheet("color: #666666; font-size: 12px;")
+                stat_layout.addWidget(label_label)
+                
+                stats_layout.addWidget(stat_widget)
+                
+                if i < len(stats) - 1:
+                    divider = QLabel("|")
+                    divider.setStyleSheet("color: #e1e4e8;")
+                    stats_layout.addWidget(divider)
+            
+            self.result_layout.addWidget(stats_frame)
+            
+            # 添加标签
+            self.add_section("🏷️ 标签", [
+                ("", content_data.get('作品标签', 'N/A'))
+            ])
+            
+            # 添加链接
+            links_frame = QFrame()
+            links_frame.setStyleSheet("""
+                QFrame {
+                    background-color: #f8f9fa;
+                    padding: 8px;
+                    border: none;
+                    margin-bottom: 8px;
+                }
+            """)
+            links_layout = QVBoxLayout(links_frame)
+            links_layout.setSpacing(2)
+            links_layout.setContentsMargins(8, 4, 8, 4)
+            
+            work_link = QLabel(f"作品链接：<a href='{content_data.get('作品链接', '#')}' style='color: #4a90e2;'>{content_data.get('作品链接', 'N/A')}</a>")
+            work_link.setOpenExternalLinks(True)
+            work_link.setStyleSheet("""
+                margin-bottom: 2px;
+                border: none;
+                padding: 0;
+            """)
+            links_layout.addWidget(work_link)
+            
+            author_link = QLabel(f"作者主页：<a href='{content_data.get('作者链接', '#')}' style='color: #4a90e2;'>{content_data.get('作者链接', 'N/A')}</a>")
+            author_link.setOpenExternalLinks(True)
+            author_link.setStyleSheet("""
+                border: none;
+                padding: 0;
+            """)
+            links_layout.addWidget(author_link)
+            
+            self.result_layout.addWidget(links_frame)
+            
+            # 显示成功提示
+            TipWindow(self.parent, "✅ 内容详情已加载").show()
+            
+        except Exception as e:
+            print(f"显示内容详情失败: {e}")
+            error_label = QLabel(f"显示内容详情失败: {str(e)}")
+            error_label.setStyleSheet("""
+                color: #dc2626;
+                font-size: 14px;
+                padding: 20px;
+                background-color: #fee2e2;
+                border-radius: 8px;
+            """)
+            self.result_layout.addWidget(error_label)
 
 class FlowLayout(QLayout):
     """流式布局类"""
