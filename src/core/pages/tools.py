@@ -3,6 +3,7 @@ import sys
 import os
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 import requests
 from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton,
@@ -44,7 +45,7 @@ class VideoProcessThread(QThread):
             self.progress.emit("正在获取视频信息...")
             response = requests.post(server, json=data)
             result = response.json()
-
+            
             if 'data' in result:
                 self.progress.emit("解析完成，正在处理数据...")
                 self.finished.emit(result['data'])
@@ -400,6 +401,11 @@ class ToolsPage(QWidget):
     def handle_video_process_result(self, data):
         """处理视频解析结果"""
         try:
+            
+            print(data)
+            
+            
+            self.parent.pic_manager.insert_pic(data['作品链接'], str(data), 1, int(time.time()))
             # 清空之前的结果
             self.clear_result_area()
 

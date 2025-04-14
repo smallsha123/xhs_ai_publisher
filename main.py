@@ -13,11 +13,14 @@ from src.core.browser import BrowserThread
 from src.core.pages.home import HomePage
 from src.core.pages.setting import SettingsPage
 from src.core.pages.tools import ToolsPage
+from src.database.group import GroupManager
+from src.database.pic import PicManager
 from src.logger.logger import Logger
 
 # 设置日志文件路径
 log_path = os.path.expanduser('~/Desktop/xhsai_error.log')
 logging.basicConfig(filename=log_path, level=logging.DEBUG)
+
 
 class XiaohongshuUI(QMainWindow):
     def __init__(self):
@@ -182,9 +185,20 @@ class XiaohongshuUI(QMainWindow):
         self.browser_thread.preview_error.connect(
             self.home_page.handle_preview_error)
         self.browser_thread.start()
-        
+
         # 启动下载器线程
         self.start_downloader_thread()
+
+        # 设置日志文件路径
+        home_dir = os.path.expanduser('~')
+        db_dir  = os.path.join(home_dir, '.xhs_system', 'db')
+        if not os.path.exists(db_dir):
+            os.makedirs(db_dir)
+
+        db_file = os.path.join(db_dir, 'xhs.db')
+        # 创建数据库
+        self.pic_manager = PicManager(db_file)
+        self.group_manager = GroupManager(db_file)
 
     def center(self):
         """将窗口移动到屏幕中央"""
@@ -262,39 +276,43 @@ class XiaohongshuUI(QMainWindow):
             print(f"关闭应用程序时出错: {str(e)}")
             # 即使出错也强制关闭
             event.accept()
-            
+
     def start_downloader_thread(self):
         """启动下载器线程"""
         try:
             import subprocess
             import threading
-            
+
             def run_downloader():
-                downloader_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src/bin/XhsAiDownloader')
+                downloader_path = os.path.join(os.path.dirname(
+                    os.path.abspath(__file__)), 'src/bin/XhsAiDownloader')
                 if sys.platform == "win32":
                     downloader_path += ".exe"
-                    
+
                 if os.path.exists(downloader_path):
                     try:
                         # 重定向标准输出和错误输出到 /dev/null 或 NUL
                         if sys.platform == "win32":
                             # 使用 start /b 命令在后台运行,避免弹出命令行窗口
-                            subprocess.Popen(f"start /b {downloader_path} server", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            subprocess.Popen(
+                                f"start /b {downloader_path} server", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                         else:
-                            subprocess.Popen(f"{downloader_path} server > /dev/null 2>&1", shell=True)
-                        self.logger.success("下载器启动成功") 
+                            subprocess.Popen(
+                                f"{downloader_path} server > /dev/null 2>&1", shell=True)
+                        self.logger.success("下载器启动成功")
                     except Exception as e:
                         self.logger.error(f"下载器启动失败: {str(e)}")
                 else:
                     self.logger.error(f"下载器文件不存在: {downloader_path}")
-                    
+
             # 创建并启动线程
-            self.downloader_thread = threading.Thread(target=run_downloader, daemon=True)
+            self.downloader_thread = threading.Thread(
+                target=run_downloader, daemon=True)
             self.downloader_thread.start()
-            
+
         except Exception as e:
             self.logger.error(f"启动下载器线程时出错: {str(e)}")
-            
+
     def stop_downloader(self):
         """关闭下载器"""
         try:
@@ -318,13 +336,15 @@ class XiaohongshuUI(QMainWindow):
                 try:
                     # 先尝试使用ps命令查找XhsAiDownloader进程
                     ps_cmd = "ps aux | grep XhsAiDownloader | grep -v grep | awk '{print $2}'"
-                    pids = subprocess.check_output(ps_cmd, shell=True).decode().strip().split('\n')
-                    
+                    pids = subprocess.check_output(
+                        ps_cmd, shell=True).decode().strip().split('\n')
+
                     if not pids or not pids[0]:
                         # 如果ps命令没找到,再尝试用lsof查找8000端口
                         cmd = "lsof -i :8000 -t"
-                        pids = subprocess.check_output(cmd, shell=True).decode().strip().split('\n')
-                        
+                        pids = subprocess.check_output(
+                            cmd, shell=True).decode().strip().split('\n')
+
                     if pids and pids[0]:
                         # 终止所有相关进程
                         kill_cmd = f"kill -9 {' '.join(pids)}"
@@ -335,7 +355,7 @@ class XiaohongshuUI(QMainWindow):
                 except Exception as e:
                     pass
                     # self.logger.error(f"Mac下载器关闭失败: {str(e)}")
-                    
+
         except Exception as e:
             self.logger.error(f"关闭下载器时出错: {str(e)}")
 
