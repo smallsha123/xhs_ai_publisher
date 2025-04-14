@@ -159,6 +159,17 @@ class XiaohongshuUI(QMainWindow):
         self.stack = QStackedWidget()
         main_layout.addWidget(self.stack)
 
+        # 设置数据库文件路径
+        home_dir = os.path.expanduser('~')
+        db_dir  = os.path.join(home_dir, '.xhs_system', 'db')
+        if not os.path.exists(db_dir):
+            os.makedirs(db_dir)
+
+        db_file = os.path.join(db_dir, 'xhs.db')
+        # 创建数据库
+        self.pic_manager = PicManager(db_file)
+        self.group_manager = GroupManager(db_file)
+
         # 创建并添加三个页面
         self.home_page = HomePage(self)
         self.tools_page = ToolsPage(self)
@@ -168,6 +179,9 @@ class XiaohongshuUI(QMainWindow):
         self.stack.addWidget(self.home_page)
         self.stack.insertWidget(1, self.tools_page)
         self.stack.addWidget(self.settings_page)
+
+        # 初始化分组列表
+        self.tools_page.init_groups()
 
         # 创建浏览器线程
         self.browser_thread = BrowserThread()
@@ -188,17 +202,6 @@ class XiaohongshuUI(QMainWindow):
 
         # 启动下载器线程
         self.start_downloader_thread()
-
-        # 设置日志文件路径
-        home_dir = os.path.expanduser('~')
-        db_dir  = os.path.join(home_dir, '.xhs_system', 'db')
-        if not os.path.exists(db_dir):
-            os.makedirs(db_dir)
-
-        db_file = os.path.join(db_dir, 'xhs.db')
-        # 创建数据库
-        self.pic_manager = PicManager(db_file)
-        self.group_manager = GroupManager(db_file)
 
     def center(self):
         """将窗口移动到屏幕中央"""

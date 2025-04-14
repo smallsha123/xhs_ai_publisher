@@ -125,7 +125,6 @@ class ToolsPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent
-        self.setup_ui()
         self.media_cache = {}  # 用于缓存已下载的媒体文件
         self.download_path = os.path.join(os.path.expanduser('~'), 'Downloads', 'xhs_images')
         os.makedirs(self.download_path, exist_ok=True)
@@ -133,6 +132,11 @@ class ToolsPage(QWidget):
         self.batch_download_thread = None
         self.video_process_thread = None
         self.progress_label = None  # 添加进度标签属性
+        self.setup_ui()
+
+    def init_groups(self):
+        """初始化分组列表，在父类group_manager初始化完成后调用"""
+        self.load_groups()
 
     def setup_ui(self):
         """设置UI"""
@@ -172,6 +176,9 @@ class ToolsPage(QWidget):
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(8, 3, 8, 3)
         content_layout.setSpacing(3)
+        
+        
+        
 
         # 创建分组管理区域
         group_frame = QFrame()
@@ -402,6 +409,7 @@ class ToolsPage(QWidget):
 
         # 将滚动区域添加到工具箱页面
         layout.addWidget(scroll_area)
+        
 
     def process_video(self):
         """处理视频链接"""
@@ -1001,63 +1009,162 @@ class ToolsPage(QWidget):
             if item.widget():
                 item.widget().deleteLater()
         
+        # 创建网格布局容器
+        grid_widget = QWidget()
+        grid_layout = QGridLayout(grid_widget)
+        grid_layout.setSpacing(8)  # 减小网格间距
+        grid_layout.setContentsMargins(0, 0, 0, 0)
+        
         # 获取所有分组
         groups = self.parent.group_manager.get_all_groups()
         
-        # 添加分组到列表
+        # 添加分组到网格
+        row = 0
+        col = 0
+        max_cols = 3  # 每行最多显示3个分组
+        
         for group in groups:
-            group_item = QFrame()
-            group_item.setStyleSheet("""
+            # 创建分组卡片
+            group_card = QFrame()
+            group_card.setStyleSheet("""
                 QFrame {
-                    background-color: #f5f5f5;
-                    border-radius: 5px;
-                    padding: 10px;
-                    margin-bottom: 5px;
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    padding: 12px;
+                }
+                QFrame:hover {
+                    background-color: #e9ecef;
                 }
             """)
             
-            group_item_layout = QHBoxLayout(group_item)
+            # 创建卡片布局
+            card_layout = QVBoxLayout(group_card)
+            card_layout.setSpacing(6)  # 减小卡片内部间距
+            card_layout.setContentsMargins(8, 8, 8, 8)  # 减小卡片内边距
             
-            # 分组名称
-            group_name = QLabel(str(group[1]))  # 使用索引访问元组
-            group_name.setStyleSheet("font-size: 14px;")
-            group_item_layout.addWidget(group_name)
+            # 添加公司图标和名称布局
+            header_layout = QHBoxLayout()
+            header_layout.setSpacing(8)  # 减小头部布局间距
+            
+            # 公司图标
+            icon_label = QLabel()
+            icon_label.setFixedSize(32, 32)  # 减小图标尺寸
+            icon_label.setStyleSheet("""
+                background-color: white;
+                border-radius: 16px;
+                padding: 6px;
+            """)
+            header_layout.addWidget(icon_label)
+            
+            # 公司信息布局
+            info_layout = QVBoxLayout()
+            info_layout.setSpacing(2)  # 减小信息布局间距
+            
+            # 公司名称
+            name_label = QLabel(str(group[1]))
+            name_label.setStyleSheet("""
+                font-size: 14px;
+                font-weight: bold;
+                color: #333;
+            """)
+            info_layout.addWidget(name_label)
+            
+            header_layout.addLayout(info_layout)
+            header_layout.addStretch()
+            card_layout.addLayout(header_layout)
+            
+            # 添加创建时间
+            time_label = QLabel(f"创建时间：{datetime.fromtimestamp(group[2]).strftime('%Y-%m-%d %H:%M:%S')}")
+            time_label.setStyleSheet("""
+                font-size: 11px;
+                color: #999;
+                margin-top: 4px;
+            """)
+            card_layout.addWidget(time_label)
+            
+            # 添加按钮布局
+            button_layout = QHBoxLayout()
+            button_layout.setSpacing(6)  # 减小按钮间距
             
             # 编辑按钮
             edit_btn = QPushButton("编辑")
             edit_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #2196F3;
-                    color: white;
-                    border: none;
-                    border-radius: 3px;
-                    padding: 3px 10px;
+                    background-color: transparent;
+                    color: #2196F3;
+                    border: 1px solid #2196F3;
+                    border-radius: 4px;
+                    padding: 4px 12px;
+                    font-size: 12px;
                 }
                 QPushButton:hover {
-                    background-color: #1976D2;
+                    background-color: #2196F3;
+                    color: white;
                 }
             """)
             edit_btn.clicked.connect(lambda checked, g=group: self.edit_group(g))
-            group_item_layout.addWidget(edit_btn)
+            button_layout.addWidget(edit_btn)
             
             # 删除按钮
             delete_btn = QPushButton("删除")
             delete_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #f44336;
-                    color: white;
-                    border: none;
-                    border-radius: 3px;
-                    padding: 3px 10px;
+                    background-color: transparent;
+                    color: #f44336;
+                    border: 1px solid #f44336;
+                    border-radius: 4px;
+                    padding: 4px 12px;
+                    font-size: 12px;
                 }
                 QPushButton:hover {
-                    background-color: #d32f2f;
+                    background-color: #f44336;
+                    color: white;
                 }
             """)
             delete_btn.clicked.connect(lambda checked, g=group: self.delete_group(g))
-            group_item_layout.addWidget(delete_btn)
+            button_layout.addWidget(delete_btn)
             
-            self.group_list.addWidget(group_item)
+            card_layout.addLayout(button_layout)
+            
+            # 添加到网格布局
+            grid_layout.addWidget(group_card, row, col)
+            
+            # 更新行列位置
+            col += 1
+            if col >= max_cols:
+                col = 0
+                row += 1
+        
+        # 创建滚动区域
+        scroll_area = QScrollArea()
+        scroll_area.setWidget(grid_widget)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #f1f1f1;
+                width: 6px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #888;
+                min-height: 20px;
+                border-radius: 3px;
+            }
+            QScrollBar::add-line:vertical {
+                height: 0px;
+            }
+            QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+        
+        # 将滚动区域添加到分组列表布局
+        self.group_list.addWidget(scroll_area)
 
     def add_group(self):
         """添加新分组"""
