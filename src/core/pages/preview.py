@@ -2,7 +2,7 @@ import os
 # 静音 Qt WebEngine 初始化日志
 os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.debug=false;qt.webenginecontext.info=false"
 from PyQt6.QtCore import QUrl, QStandardPaths, QDateTime
-from PyQt6.QtWidgets import QWidget, QVBoxLayout
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineProfile, QWebEngineSettings, QWebEnginePage
 
@@ -20,9 +20,35 @@ class PreviewPage(QWidget):
 
         self.setObjectName("previewPage")
         
-        l = QVBoxLayout(self)
-        l.setContentsMargins(0, 0, 0, 0)
-        l.setSpacing(0)
+        # 主布局
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # 顶部导航栏
+        nav_layout = QHBoxLayout()
+        nav_layout.setContentsMargins(5, 5, 5, 5)
+        nav_layout.setSpacing(5)
+        
+        # 首页按钮
+        self.home_btn = QPushButton("首页")
+        self.home_btn.setFixedHeight(30)
+        self.home_btn.clicked.connect(self.go_home)
+        nav_layout.addWidget(self.home_btn)
+        
+        # URL显示和复制区域
+        self.url_edit = QLineEdit()
+        self.url_edit.setReadOnly(True)
+        self.url_edit.setFixedHeight(30)
+        nav_layout.addWidget(self.url_edit)
+        
+        # 提取笔记按钮
+        self.extract_btn = QPushButton("提取笔记")
+        self.extract_btn.setFixedHeight(30)
+        self.extract_btn.clicked.connect(self.extract_note)
+        nav_layout.addWidget(self.extract_btn)
+        
+        main_layout.addLayout(nav_layout)
         
         # 设置桌面浏览器 User-Agent
         profile = QWebEngineProfile.defaultProfile()
@@ -88,10 +114,13 @@ class PreviewPage(QWidget):
             document.documentElement.style.overflowX = 'hidden';
         """)
         
+        # 监听URL变化
+        self.web_view.urlChanged.connect(self.update_url)
+        
         # 页面加载完成后注入反检测脚本
         self.web_view.loadFinished.connect(self.inject_stealth_script)
         
-        l.addWidget(self.web_view)
+        main_layout.addWidget(self.web_view)
     
     def load_saved_cookies(self, profile):
         """加载已保存的cookie"""
@@ -188,4 +217,23 @@ class PreviewPage(QWidget):
                 
         except Exception as e:
             print(f"处理cookie时出错: {str(e)}")
+    
+    def go_home(self):
+        """跳转到首页"""
+        self.web_view.setUrl(QUrl("https://www.xiaohongshu.com"))
+    
+    def update_url(self, url):
+        """更新URL显示"""
+        self.url_edit.setText(url.toString())
+    
+    def extract_note(self):
+        """提取笔记内容"""
+        current_url = self.web_view.url().toString()
+        if "xiaohongshu.com" in current_url and "/explore/" in current_url:
+            # 发送提取笔记的信号
+            print(f"提取笔记: {current_url}")
+            # TODO: 在这里添加提取笔记的具体实现
+            # self.note_extracted.emit(current_url)
+        else:
+            print("当前页面不是笔记页面")
   
