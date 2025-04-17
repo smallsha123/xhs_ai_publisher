@@ -2,6 +2,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 
 from src.core.write_xiaohongshu import XiaohongshuPoster
+from src.core.comment_xiaohongshu import XiaohongshuComment
 
 
 class BrowserThread(QThread):
@@ -35,6 +36,12 @@ class BrowserThread(QThread):
                             action['images']
                         )
                         self.preview_success.emit()
+                    elif action['type'] == 'comment':
+                        self.comment = XiaohongshuComment()
+                        self.comment.login(action['phone'])
+                        self.login_success.emit(self.poster)    
+                        
+                        
                 except Exception as e:
                     if action['type'] == 'login':
                         self.login_error.emit(str(e))

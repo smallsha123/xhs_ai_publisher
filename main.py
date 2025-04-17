@@ -1,21 +1,28 @@
+from src.logger.logger import Logger
+from src.database.pic import PicManager
+from src.database.group import GroupManager
+from src.core.pages.preview import PreviewPage
+from src.core.pages.tools import ToolsPage
+from src.core.pages.setting import SettingsPage
+from src.core.pages.comment import CommentPage
+from src.core.pages.home import HomePage
+from src.core.browser import BrowserThread
+from src.config.config import Config
+from PyQt6.QtWidgets import (QApplication, QHBoxLayout, QMainWindow,
+                             QPushButton, QStackedWidget, QVBoxLayout, QWidget)
+from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import QTimer
 import logging
 import os
 import signal
 import sys
+import warnings
 
-from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import (QApplication, QHBoxLayout, QMainWindow,
-                             QPushButton, QStackedWidget, QVBoxLayout, QWidget)
+# 忽略 sip 模块的弃用警告
+warnings.filterwarnings("ignore", message="sipPyTypeDict.*deprecated.*sipPyTypeDictRef")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="sip")
 
-from src.config.config import Config
-from src.core.browser import BrowserThread
-from src.core.pages.home import HomePage
-from src.core.pages.setting import SettingsPage
-from src.core.pages.tools import ToolsPage
-from src.database.group import GroupManager
-from src.database.pic import PicManager
-from src.logger.logger import Logger
+
 
 # 设置日志文件路径
 log_path = os.path.expanduser('~/Desktop/xhsai_error.log')
@@ -25,7 +32,6 @@ logging.basicConfig(filename=log_path, level=logging.DEBUG)
 class XiaohongshuUI(QMainWindow):
     def __init__(self):
         super().__init__()
-
         self.config = Config()
 
         # 设置应用图标
@@ -111,9 +117,13 @@ class XiaohongshuUI(QMainWindow):
                 background-color: white;
                 padding: 20px;
             }}
+            #previewPage {{
+                background-color: white;
+                border-left: 1px solid #ddd;
+            }}
         """)
 
-        self.setMinimumSize(1000, 600)
+        self.setMinimumSize(1500, 800)
         self.center()
 
         # 创建主窗口部件
@@ -143,12 +153,18 @@ class XiaohongshuUI(QMainWindow):
         tools_btn.setCheckable(True)
         tools_btn.clicked.connect(lambda: self.switch_page(1))
 
-        settings_btn = QPushButton("⚙️")
+        # 添加评论页面按钮
+        comment_btn = QPushButton("💬")
+        comment_btn.setCheckable(True)
+        comment_btn.clicked.connect(lambda: self.switch_page(2))
+
+        settings_btn = QPushButton("⚙")
         settings_btn.setCheckable(True)
-        settings_btn.clicked.connect(lambda: self.switch_page(2))
+        settings_btn.clicked.connect(lambda: self.switch_page(3))
 
         sidebar_layout.addWidget(home_btn)
         sidebar_layout.addWidget(tools_btn)
+        sidebar_layout.addWidget(comment_btn)
         sidebar_layout.addWidget(settings_btn)
         sidebar_layout.addStretch()
 
@@ -159,9 +175,13 @@ class XiaohongshuUI(QMainWindow):
         self.stack = QStackedWidget()
         main_layout.addWidget(self.stack)
 
+        # 创建预览页面
+        self.preview_page = PreviewPage(self)
+        main_layout.addWidget(self.preview_page)
+
         # 设置数据库文件路径
         home_dir = os.path.expanduser('~')
-        db_dir  = os.path.join(home_dir, '.xhs_system', 'db')
+        db_dir = os.path.join(home_dir, '.xhs_system', 'db')
         if not os.path.exists(db_dir):
             os.makedirs(db_dir)
 
@@ -172,18 +192,20 @@ class XiaohongshuUI(QMainWindow):
 
         # 创建并添加三个页面
         self.home_page = HomePage(self)
+        self.comment_page = CommentPage(self)
         self.tools_page = ToolsPage(self)
         self.settings_page = SettingsPage(self)
 
         # 将页面添加到堆叠窗口
         self.stack.addWidget(self.home_page)
         self.stack.insertWidget(1, self.tools_page)
+        self.stack.addWidget(self.comment_page)
         self.stack.addWidget(self.settings_page)
 
         # 初始化分组列表
         self.tools_page.init_groups()
 
-        # 创建浏览器线程
+        # 创建创作者浏览器线程
         self.browser_thread = BrowserThread()
         # 连接信号
         self.browser_thread.login_status_changed.connect(
@@ -199,6 +221,17 @@ class XiaohongshuUI(QMainWindow):
         self.browser_thread.preview_error.connect(
             self.home_page.handle_preview_error)
         self.browser_thread.start()
+
+        ############################ 创建小红书浏览器 ############################
+        self.comment_browser_thread = BrowserThread()
+        # 连接信号
+        self.comment_browser_thread.login_status_changed.connect(
+            self.update_comment_login_button)
+        self.comment_browser_thread.login_success.connect(
+            self.comment_page.handle_poster_ready)
+        self.comment_browser_thread.login_error.connect(
+            self.comment_page.handle_login_error)
+        self.comment_browser_thread.start()
 
         # 启动下载器线程
         self.start_downloader_thread()
@@ -218,6 +251,13 @@ class XiaohongshuUI(QMainWindow):
     def update_login_button(self, text, enabled):
         """更新登录按钮状态"""
         login_btn = self.findChild(QPushButton, "login_btn")
+        if login_btn:
+            login_btn.setText(text)
+            login_btn.setEnabled(enabled)
+
+    def update_comment_login_button(self, text, enabled):
+        """更新登录按钮状态"""
+        login_btn = self.findChild(QPushButton, "zhu_login_btn")
         if login_btn:
             login_btn.setText(text)
             login_btn.setEnabled(enabled)

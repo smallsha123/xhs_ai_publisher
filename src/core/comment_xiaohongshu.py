@@ -8,7 +8,7 @@ import logging
 from PyQt6.QtWidgets import QInputDialog, QLineEdit
 from PyQt6.QtCore import QObject, pyqtSignal, QMetaObject, Qt, QThread, pyqtSlot
 from PyQt6.QtWidgets import QApplication
-log_path = os.path.expanduser('~/Desktop/xhsai_error.log')
+log_path = os.path.expanduser('~/Desktop/xhsailogin_error.log')
 logging.basicConfig(filename=log_path, level=logging.DEBUG)
 
 class VerificationCodeHandler(QObject):
@@ -41,7 +41,7 @@ class VerificationCodeHandler(QObject):
         else:
             self.code = ""
 
-class XiaohongshuPoster:
+class XiaohongshuComment:
     def __init__(self):
         self.playwright = None
         self.browser = None
@@ -49,6 +49,7 @@ class XiaohongshuPoster:
         self.page = None
         self.verification_handler = VerificationCodeHandler()
         self.initialize()
+        self.url = "https://www.xiaohongshu.com/login"
 
     def initialize(self):
         """初始化浏览器"""
@@ -56,7 +57,7 @@ class XiaohongshuPoster:
             return
             
         try:
-            print("开始初始化Playwright...")
+            print("开始初始化Playwright-comment...")
             self.playwright = sync_playwright().start()
 
             # 获取可执行文件所在目录
@@ -116,14 +117,6 @@ class XiaohongshuPoster:
             self.context = self.browser.new_context(
                 permissions=['geolocation']  # 自动允许位置信息访问
             )
-            self.page = self.context.new_page()
-            
-            # 注入stealth.min.js
-            stealth_js = os.path.join(os.path.dirname(__file__), "stealth.min.js")
-            self.page.add_init_script(path = stealth_js)
-            
-            print("浏览器启动成功！")
-            logging.debug("浏览器启动成功！")
             
             # 获取用户主目录
             home_dir = os.path.expanduser('~')
@@ -131,12 +124,17 @@ class XiaohongshuPoster:
             if not os.path.exists(app_dir):
                 os.makedirs(app_dir)
 
-            # 设置cookies文件路径
-            self.cookies_file = os.path.join(app_dir, "xiaohongshu_cookies.json")
+                # cookies文件路径
+            self.cookies_file = os.path.join(app_dir, "comment_xiaohongshu_cookies.json")
             self._load_cookies()
 
+            self.page = self.context.new_page()
+            
+            # 注入stealth.min.js
+            stealth_js = os.path.join(os.path.dirname(__file__), "stealth.min.js")
+            self.page.add_init_script(path = stealth_js)
+            logging.debug("浏览器启动成功！")
         except Exception as e:
-            print(f"初始化过程中出现错误: {str(e)}")
             logging.debug(f"初始化过程中出现错误: {str(e)}")
             self.close()  # 确保资源被正确释放
             raise
@@ -154,6 +152,8 @@ class XiaohongshuPoster:
                             cookie['domain'] = '.xiaohongshu.com'
                         if 'path' not in cookie:
                             cookie['path'] = '/'
+
+                    # print(cookies)        
                     self.context.add_cookies(cookies)
             except Exception as e:
                 logging.debug(f"加载cookies失败: {str(e)}")
@@ -170,16 +170,15 @@ class XiaohongshuPoster:
     def login(self, phone, country_code="+86"):
         """登录小红书"""
         self.ensure_browser()  # 确保浏览器已初始化
-
         # 尝试加载cookies进行登录
-        self.page.goto("https://creator.xiaohongshu.com/login", wait_until="networkidle")
-        # 刷新页面并等待加载完成
+        self.page.goto(self.url, wait_until="networkidle")
+        
         self.page.reload(wait_until="networkidle")
-
         # 检查是否已经登录
         current_url = self.page.url
         if "login" not in current_url:
             print("使用cookies登录成功")
+            self.token = self._load_token()
             self._save_cookies()
             return
         else:
@@ -187,16 +186,15 @@ class XiaohongshuPoster:
             self.context.clear_cookies()
             
         # 如果cookies登录失败，则进行手动登录
-        self.page.goto("https://creator.xiaohongshu.com/login")
-        time.sleep(1)
+        self.page.goto(self.url, wait_until="networkidle")
 
         # 输入手机号
-        self.page.fill("//input[@placeholder='手机号']", phone)
+        self.page.fill("//input[@placeholder='输入手机号']", phone)
 
         time.sleep(2)
         # 点击发送验证码按钮
         try:
-            self.page.click(".css-uyobdj")
+            self.page.click(".code-button")
         except:
             try:
                 self.page.click(".css-1vfl29")
@@ -209,13 +207,13 @@ class XiaohongshuPoster:
         # 使用信号机制获取验证码
         verification_code = self.verification_handler.get_verification_code()
         if verification_code:
-            self.page.fill("//input[@placeholder='验证码']", verification_code)
+            self.page.fill("//input[@placeholder='输入验证码']", verification_code)
 
         # 点击登录按钮
-        self.page.click(".beer-login-btn")
+        self.page.click(".submit")
 
         # 等待登录成功
-        time.sleep(3)
+        time.sleep(5)
         # 保存cookies
         self._save_cookies()
 
