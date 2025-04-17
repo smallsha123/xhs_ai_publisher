@@ -224,16 +224,32 @@ class PreviewPage(QWidget):
     
     def update_url(self, url):
         """更新URL显示"""
+        # 设置光标位置到开头,这样超长URL会从头开始显示
         self.url_edit.setText(url.toString())
+        self.url_edit.setCursorPosition(0)
     
     def extract_note(self):
         """提取笔记内容"""
         current_url = self.web_view.url().toString()
         if "xiaohongshu.com" in current_url and "/explore/" in current_url:
-            # 发送提取笔记的信号
-            print(f"提取笔记: {current_url}")
-            # TODO: 在这里添加提取笔记的具体实现
-            # self.note_extracted.emit(current_url)
+            # 获取父窗口
+            main_window = self.parent().window()  # 使用window()方法获取主窗口
+            if main_window:
+                # 获取tools页面
+                tools_page = main_window.findChild(QWidget, "toolsPage")  # 通过objectName查找tools页面
+                if tools_page:
+                    # 设置URL到工具页面的输入框
+                    if hasattr(tools_page, 'url_input'):
+                        tools_page.url_input.setText(current_url)
+                        # 切换到工具页面(索引1)
+                        main_window.switch_page(1)  # 使用主窗口的switch_page方法切换到工具页面
+                        print(f"已将URL传递到工具页面: {current_url}")
+                    else:
+                        print("工具页面未找到url_input")
+                else:
+                    print("未找到工具页面")
+            else:
+                print("未找到主窗口")
         else:
             print("当前页面不是笔记页面")
   

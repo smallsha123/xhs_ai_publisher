@@ -125,6 +125,8 @@ class ToolsPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent
+        self.setObjectName("toolsPage")
+
         self.media_cache = {}  # 用于缓存已下载的媒体文件
         self.download_path = os.path.join(os.path.expanduser('~'), 'Downloads', 'xhs_images')
         os.makedirs(self.download_path, exist_ok=True)
@@ -524,7 +526,7 @@ class ToolsPage(QWidget):
             
             # 添加下载全部按钮
             if '下载地址' in data and data['下载地址']:
-                download_btn = QPushButton("⬇️ 下载全部")
+                download_btn = QPushButton("下载全部")
                 download_btn.setStyleSheet("""
                     QPushButton {
                         padding: 4px 8px;
@@ -1392,7 +1394,7 @@ class ToolsPage(QWidget):
             
             # 添加下载全部按钮
             if '下载地址' in content_data and content_data['下载地址']:
-                download_btn = QPushButton("⬇️ 下载全部")
+                download_btn = QPushButton("下载全部")
                 download_btn.setStyleSheet("""
                     QPushButton {
                         padding: 4px 8px;

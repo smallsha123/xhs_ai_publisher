@@ -39,7 +39,7 @@ class BrowserThread(QThread):
                     elif action['type'] == 'comment':
                         self.comment = XiaohongshuComment()
                         self.comment.login(action['phone'])
-                        self.login_success.emit(self.poster)    
+                        self.login_success.emit()    
                         
                         
                 except Exception as e:
