@@ -227,8 +227,8 @@ class XiaohongshuUI(QMainWindow):
         # 连接信号
         self.comment_browser_thread.login_status_changed.connect(
             self.update_comment_login_button)
-        self.comment_browser_thread.login_success.connect(
-            self.comment_page.handle_poster_ready)
+        self.comment_browser_thread.comment_success.connect(
+            self.comment_page.handle_login_success)
         self.comment_browser_thread.login_error.connect(
             self.comment_page.handle_login_error)
         self.comment_browser_thread.start()

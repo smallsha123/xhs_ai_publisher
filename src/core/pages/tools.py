@@ -863,7 +863,28 @@ class ToolsPage(QWidget):
         
         # 添加内容
         for label, value in items:
-            if label:
+            if label == "描述":  # 特殊处理描述字段
+                # 添加描述标签
+                label_widget = QLabel(f"{label}:")
+                label_widget.setStyleSheet("""
+                    color: #666666;
+                    border: none;
+                    padding: 0;
+                    margin-bottom: 4px;
+                """)
+                section_layout.addWidget(label_widget)
+                
+                # 添加描述内容（新起一行）
+                value_widget = QLabel(value)
+                value_widget.setWordWrap(True)
+                value_widget.setStyleSheet("""
+                    color: #1a1a1a;
+                    border: none;
+                    padding: 0;
+                    margin: 0 10px 8px 20px;  /* 左边缩进20px */
+                """)
+                section_layout.addWidget(value_widget)
+            elif label:  # 其他字段保持水平布局
                 item_layout = QHBoxLayout()
                 item_layout.setSpacing(4)
                 label_widget = QLabel(f"{label}:")
@@ -875,21 +896,24 @@ class ToolsPage(QWidget):
                 item_layout.addWidget(label_widget)
                 
                 value_widget = QLabel(value)
+                value_widget.setWordWrap(True)
                 value_widget.setStyleSheet("""
                     color: #1a1a1a;
                     border: none;
                     padding: 0;
+                    margin-right: 10px;
                 """)
-                item_layout.addWidget(value_widget)
-                item_layout.addStretch()
+                item_layout.addWidget(value_widget, 1)
                 
                 section_layout.addLayout(item_layout)
             else:
                 value_widget = QLabel(value)
+                value_widget.setWordWrap(True)
                 value_widget.setStyleSheet("""
                     color: #4a90e2;
                     border: none;
                     padding: 0;
+                    margin-right: 10px;
                 """)
                 section_layout.addWidget(value_widget)
         

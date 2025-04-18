@@ -154,7 +154,6 @@ class PreviewPage(QWidget):
                         
                         # 添加到cookie store
                         profile.cookieStore().setCookie(qcookie)
-                print("已加载保存的cookie")
         except Exception as e:
             print(f"加载cookie时出错: {str(e)}")
     
@@ -163,12 +162,10 @@ class PreviewPage(QWidget):
             try:
                 # 从文件加载stealth脚本
                 stealth_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "stealth.min.js")
-                print(stealth_file)
                 if os.path.exists(stealth_file):
                     with open(stealth_file, 'r', encoding='utf-8') as f:
                         stealth_script = f.read()
                     self.web_view.page().runJavaScript(stealth_script)
-                    print("已加载stealth脚本")
                 else:
                     print("stealth.js文件不存在")
             except Exception as e:

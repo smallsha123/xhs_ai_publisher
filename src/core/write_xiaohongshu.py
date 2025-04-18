@@ -116,11 +116,11 @@ class XiaohongshuPoster:
             self.context = self.browser.new_context(
                 permissions=['geolocation']  # 自动允许位置信息访问
             )
-            self.page = self.context.new_page()
-            
             # 注入stealth.min.js
             stealth_js = os.path.join(os.path.dirname(__file__), "stealth.min.js")
-            self.page.add_init_script(path = stealth_js)
+            self.context.add_init_script(path = stealth_js)
+            
+            self.page = self.context.new_page()
             
             print("浏览器启动成功！")
             logging.debug("浏览器启动成功！")

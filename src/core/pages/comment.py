@@ -128,8 +128,8 @@ class CommentPage(QWidget):
         except Exception as e:
             self.parent.logger.error(f"更新手机号配置失败: {str(e)}")
             
-    def handle_poster_ready(self):
-            """处理登录成功后的poster对象"""
-            # 更新登录按钮状态
-            self.parent.update_comment_login_button("✅ 已登录", False)
-            TipWindow(self.parent, "✅ 登录成功").show()
+    def handle_login_success(self):
+        """处理登录成功后的poster对象"""
+        # 更新登录按钮状态
+        self.parent.update_comment_login_button("✅ 已登录", False)
+        TipWindow(self.parent, "✅ 登录成功").show()

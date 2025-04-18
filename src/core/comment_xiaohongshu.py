@@ -8,38 +8,48 @@ import logging
 from PyQt6.QtWidgets import QInputDialog, QLineEdit
 from PyQt6.QtCore import QObject, pyqtSignal, QMetaObject, Qt, QThread, pyqtSlot
 from PyQt6.QtWidgets import QApplication
+from src.core.xhs import XhsClient
+
 log_path = os.path.expanduser('~/Desktop/xhsailogin_error.log')
-logging.basicConfig(filename=log_path, level=logging.DEBUG)
+logging.basicConfig(filename=log_path, level=logging.DEBUG,
+                    format='%(asctime)s - %(levelname)s - %(message)s',
+                    handlers=[
+                        logging.FileHandler(log_path),
+                    ])
+
 
 class VerificationCodeHandler(QObject):
     code_received = pyqtSignal(str)
-    
+
     def __init__(self):
         super().__init__()
         self.code = None
         self.dialog = None
-        
+
     def get_verification_code(self):
         # 确保在主线程中执行
         if QApplication.instance().thread() != QThread.currentThread():
             # 如果不在主线程，使用moveToThread移动到主线程
             self.moveToThread(QApplication.instance().thread())
             # 使用invokeMethod确保在主线程中执行
-            QMetaObject.invokeMethod(self, "_show_dialog", Qt.ConnectionType.BlockingQueuedConnection)
+            QMetaObject.invokeMethod(
+                self, "_show_dialog", Qt.ConnectionType.BlockingQueuedConnection)
         else:
             # 如果已经在主线程，直接执行
             self._show_dialog()
-        
+
         return self.code
-    
+
     @pyqtSlot()
     def _show_dialog(self):
-        code, ok = QInputDialog.getText(None, "验证码", "请输入验证码:", QLineEdit.EchoMode.Normal)
+        code, ok = QInputDialog.getText(
+            None, "验证码", "请输入验证码:", QLineEdit.EchoMode.Normal)
         if ok:
             self.code = code
             self.code_received.emit(code)
         else:
             self.code = ""
+
 
 class XiaohongshuComment:
     def __init__(self):
@@ -55,11 +65,10 @@ class XiaohongshuComment:
         """初始化浏览器"""
         if self.playwright is not None:
             return
-            
+
         try:
             print("开始初始化Playwright-comment...")
             self.playwright = sync_playwright().start()
-
             # 获取可执行文件所在目录
             launch_args = {
                 'headless': False,
@@ -97,7 +106,8 @@ class XiaohongshuComment:
                     # Windows系统
                     executable_dir = sys._MEIPASS
                     print(f"临时解压目录: {executable_dir}")
-                    browser_path = os.path.join(executable_dir, "ms-playwright")
+                    browser_path = os.path.join(
+                        executable_dir, "ms-playwright")
                     print(f"浏览器路径: {browser_path}")
                     chromium_path = os.path.join(
                         browser_path, "chrome-win", "chrome.exe")
@@ -117,7 +127,11 @@ class XiaohongshuComment:
             self.context = self.browser.new_context(
                 permissions=['geolocation']  # 自动允许位置信息访问
             )
-            
+            stealth_js = os.path.join(
+                os.path.dirname(__file__), "stealth.min.js")
+
+            self.context.add_init_script(path=stealth_js)
+
             # 获取用户主目录
             home_dir = os.path.expanduser('~')
             app_dir = os.path.join(home_dir, '.xhs_system')
@@ -125,20 +139,16 @@ class XiaohongshuComment:
                 os.makedirs(app_dir)
 
                 # cookies文件路径
-            self.cookies_file = os.path.join(app_dir, "comment_xiaohongshu_cookies.json")
+            self.cookies_file = os.path.join(
+                app_dir, "comment_xiaohongshu_cookies.json")
             self._load_cookies()
-
             self.page = self.context.new_page()
-            
-            # 注入stealth.min.js
-            stealth_js = os.path.join(os.path.dirname(__file__), "stealth.min.js")
-            self.page.add_init_script(path = stealth_js)
-            logging.debug("浏览器启动成功！")
+
+            logging.info("浏览器启动成功！")
         except Exception as e:
             logging.debug(f"初始化过程中出现错误: {str(e)}")
             self.close()  # 确保资源被正确释放
             raise
-
 
     def _load_cookies(self):
         """从文件加载cookies"""
@@ -153,8 +163,9 @@ class XiaohongshuComment:
                         if 'path' not in cookie:
                             cookie['path'] = '/'
 
-                    # print(cookies)        
+                    # print(cookies)
                     self.context.add_cookies(cookies)
+                    return cookies
             except Exception as e:
                 logging.debug(f"加载cookies失败: {str(e)}")
 
@@ -167,24 +178,53 @@ class XiaohongshuComment:
         except Exception as e:
             logging.debug(f"保存cookies失败: {str(e)}")
 
+    def sign(self, uri, data=None, a1="", web_session=""):
+        encrypt_params = self.page.evaluate(
+            "([url, data]) => window._webmsxyw(url, data)", [uri, data])
+        return {
+            "x-s": encrypt_params["X-s"],
+            "x-t": str(encrypt_params["X-t"])
+
+        }
+
+    def cookies_to_str(self):
+        cookies = self.context.cookies()
+        """将cookie列表转换为字符串格式"""
+        cookie_str = ""
+        for cookie in cookies:
+            name = cookie.get('name', '')
+            value = cookie.get('value', '')
+            if name and value:
+                cookie_str += f"{name}={value}; "
+        return cookie_str.strip('; ')
+
     def login(self, phone, country_code="+86"):
         """登录小红书"""
         self.ensure_browser()  # 确保浏览器已初始化
         # 尝试加载cookies进行登录
-        self.page.goto(self.url, wait_until="networkidle")
-        
-        self.page.reload(wait_until="networkidle")
+        self.page.goto(self.url)
         # 检查是否已经登录
         current_url = self.page.url
         if "login" not in current_url:
             print("使用cookies登录成功")
-            self.token = self._load_token()
             self._save_cookies()
+            # my_notes = self.get_my_notes()
+            cookies = self.cookies_to_str()
+            print(cookies)
+            try:
+                xhs_client = XhsClient(cookie=cookies, sign=self.sign)  # 自定义代理
+                info = xhs_client.get_self_info2()
+                note_info = xhs_client.get_note_comments(
+                    "68009f0a000000001c000b2f", "", "ABmOg1ezNNrYaIFtpkexwpxl9NXxofzO5svBxZq5b8avw")
+                print(note_info)
+            except Exception as e:
+                print(f"获取笔记信息失败: {str(e)}")
+                note_info = None
             return
         else:
             # 清理无效的cookies
             self.context.clear_cookies()
-            
+
         # 如果cookies登录失败，则进行手动登录
         self.page.goto(self.url, wait_until="networkidle")
 
