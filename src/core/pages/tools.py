@@ -72,19 +72,12 @@ class DownloadThread(QThread):
         super().__init__()
         self.url = url
         self.save_path = save_path
-
     def run(self):
         try:
-            response = requests.get(self.url, headers={
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Referer': 'https://www.xiaohongshu.com/'
-            })
-            if response.status_code == 200:
-                with open(self.save_path, 'wb') as f:
-                    f.write(response.content)
-                self.finished.emit("✅ 图片已保存")
-            else:
-                raise Exception(f"下载失败: HTTP {response.status_code}")
+            # 直接读取本地文件并写入新位置
+            with open(self.url, 'rb') as src, open(self.save_path, 'wb') as dst:
+                dst.write(src.read())
+            self.finished.emit("✅ 图片已保存")
         except Exception as e:
             self.error.emit(f"❌ 下载失败: {str(e)}")
 
@@ -105,18 +98,13 @@ class BatchDownloadThread(QThread):
                 filename = f"图片_{i}.jpg"
                 file_path = os.path.join(self.save_dir, filename)
                 
-                response = requests.get(url, headers={
-                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Referer': 'https://www.xiaohongshu.com/'
-                })
-                if response.status_code == 200:
-                    with open(file_path, 'wb') as f:
-                        f.write(response.content)
-                    self.progress.emit(f"✅ 图片_{i} 已保存")
-                else:
-                    raise Exception(f"下载失败: HTTP {response.status_code}")
+                # 直接读取本地文件并写入新位置
+                with open(url, 'rb') as src, open(file_path, 'wb') as dst:
+                    dst.write(src.read())
+                self.progress.emit(f"✅ 图片_{i} 已保存")
+                
             except Exception as e:
-                self.error.emit(f"❌ 图片_{i} 下载失败: {str(e)}")
+                self.error.emit(f"❌ 图片_{i} 保存失败: {str(e)}")
         self.finished.emit()
 
 class ToolsPage(QWidget):
@@ -425,7 +413,6 @@ class ToolsPage(QWidget):
         # 将滚动区域添加到工具箱页面
         layout.addWidget(scroll_area)
         
-
     def process_video(self):
         """处理视频链接"""
         try:
@@ -486,8 +473,23 @@ class ToolsPage(QWidget):
         try:
             # 获取当前选中的分组ID
             current_group_id = self.parent.config.get_default_group()
+            
+            #获取作品存储目录
+            
+            # 获取用户主目录
+            home_dir = os.path.expanduser('~')
+            img_dir = os.path.join(home_dir, '.xhs_system/imgs')
+           
+            url =  data['作品链接']
+            # 从作品链接中提取最后的ID
+            note_id = url.split('/')[-1]
+            img_dir = os.path.join(home_dir, f".xhs_system/imgs/{note_id}")
+
+            if not os.path.exists(img_dir):
+              os.makedirs(img_dir)
+        
             # 将数据保存到数据库，使用当前选中的分组ID
-            self.parent.pic_manager.insert_pic(data['作品链接'], str(data), current_group_id, int(time.time()))
+            self.parent.pic_manager.insert_pic(url, str(data), current_group_id, int(time.time()))
             
             # 清空之前的结果
             self.clear_result_area()
@@ -561,6 +563,48 @@ class ToolsPage(QWidget):
             if '下载地址' in data and data['下载地址']:
                 row = 0
                 col = 0
+
+                # 定义下载单个图片的函数
+                def download_single_image(url):
+                    try:
+                        # 从URL中提取文件名
+                        img_name = url.split('?')[0].split('/')[-1]
+                        img_path = os.path.join(img_dir, f"{img_name}.png")
+                        
+                        # 下载图片
+                        headers = {
+                            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                            'Referer': 'https://www.xiaohongshu.com/'
+                        }
+                        response = requests.get(url, headers=headers)
+                        response.raise_for_status()
+                        
+                        # 保存图片
+                        with open(img_path, 'wb') as f:
+                            f.write(response.content)
+                        return img_path
+                    except Exception as e:
+                        print(f"下载图片失败 {url}: {str(e)}")
+                        return url
+
+                # 使用线程池并发下载,保持原有顺序
+                local_paths = [None] * len(data['下载地址'])
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    # 创建一个字典来跟踪每个future对应的原始索引
+                    future_to_index = {}
+                    for idx, url in enumerate(data['下载地址']):
+                        future = executor.submit(download_single_image, url)
+                        future_to_index[future] = idx
+                    
+                    # 等待所有下载完成并按原始顺序保存路径
+                    for future in as_completed(future_to_index.keys()):
+                        original_idx = future_to_index[future]
+                        local_path = future.result()
+                        local_paths[original_idx] = local_path
+                
+                # 更新data中的下载地址为本地路径,保持原有顺序
+                data['下载地址'] = local_paths
+                
                 for url in data['下载地址']:
                     try:
                         # 创建图片卡片
@@ -577,17 +621,8 @@ class ToolsPage(QWidget):
                         card_layout.setContentsMargins(0, 0, 0, 0)
                         card_layout.setSpacing(0)
                         
-                        # 加载图片
-                        response = requests.get(url, headers={
-                            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                            'Referer': 'https://www.xiaohongshu.com/'
-                        })
-                        image_data = response.content
-                        
                         # 创建QPixmap并设置图片
-                        pixmap = QPixmap()
-                        byte_array = QByteArray(image_data)
-                        pixmap.loadFromData(byte_array)
+                        pixmap = QPixmap(url)
                         
                         if not pixmap.isNull():
                             # 调整图片大小并保持比例
